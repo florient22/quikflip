@@ -37,7 +37,7 @@ The code lives in a private GitHub repository (`florient22/quikflip`). Pushing a
 1. Set the new version in `Cargo.toml` and in both `image:` lines of `compose.yaml`, then commit.
 2. Tag and push:
    ```sh
-   git tag v0.3.2
+   git tag v0.3.3
    git push && git push --tags
    ```
 3. Watch the build under the repository's Actions tab (about 10 minutes the first time, a few minutes after that). It fails on purpose if the tag and the `Cargo.toml` version differ. Private repositories get a monthly allowance of free Actions minutes, which is plenty for this.
@@ -64,11 +64,11 @@ Publish a new version (above), then edit the app's YAML in TrueNAS and change th
 To build on your own machine instead (Podman: `sudo dnf install podman` on Fedora, Podman Desktop on Windows):
 
 ```sh
-podman build -t ghcr.io/florient22/quikflip:0.3.2 .
-podman save -o quikflip-0.3.2.tar ghcr.io/florient22/quikflip:0.3.2
+podman build -t ghcr.io/florient22/quikflip:0.3.3 .
+podman save -o quikflip-0.3.3.tar ghcr.io/florient22/quikflip:0.3.3
 ```
 
-Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.3.2.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
+Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.3.3.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
 
 ## Word lists, country data, fonts and libraries
 

@@ -3,7 +3,7 @@
 # token from `claude setup-token`. To update, change the version in both image lines.
 services:
   quikflip:
-    image: ghcr.io/florient22/quikflip:0.3.2
+    image: ghcr.io/florient22/quikflip:0.3.3
     container_name: quikflip
     restart: unless-stopped
     user: "568:568"
@@ -16,7 +16,7 @@ services:
 
   # Makes puzzles ahead of time (Claude for Rarefind and Atlas Hunt, Deezer for Snippet) and judges contested answers; checks every hour.
   quikflip-generator:
-    image: ghcr.io/florient22/quikflip:0.3.2
+    image: ghcr.io/florient22/quikflip:0.3.3
     container_name: quikflip-generator
     restart: unless-stopped
     user: "568:568"

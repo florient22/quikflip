@@ -1,3 +1,4 @@
-tools/.cache/
-target/
-data/
+# Only the folders at the project root: web/games/atlas/data/ holds committed country data.
+/tools/.cache/
+/target/
+/data/
