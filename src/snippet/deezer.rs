@@ -13,6 +13,7 @@ const TIMEOUT: Duration = Duration::from_secs(30);
 const USER_AGENT: &str = concat!("QuikFlip/", env!("CARGO_PKG_VERSION"), " (self-hosted daily games)");
 const CHART_LIMIT: usize = 100;
 const TOP_LIMIT: usize = 25;
+const PLAYLIST_LIMIT: usize = 300;
 /// Previews are about 0.5 MB and covers about 20 KB; anything far bigger is not what we asked for.
 const MAX_DOWNLOAD_BYTES: usize = 5 * 1024 * 1024;
 
@@ -37,8 +38,9 @@ pub struct Track {
 #[derive(Debug, Clone, Deserialize)]
 pub struct Album {
     pub title: String,
+    /// Missing (null) for albums without artwork.
     #[serde(default)]
-    pub cover_medium: String,
+    pub cover_medium: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -89,6 +91,11 @@ impl Deezer {
     /// The most popular tracks in a genre (0 = all genres).
     pub async fn chart(&self, genre_id: u32) -> anyhow::Result<Vec<Track>> {
         Ok(self.get::<List<Track>>(&format!("/chart/{genre_id}/tracks?limit={CHART_LIMIT}")).await?.data)
+    }
+
+    /// A playlist's tracks (Deezer's charts and editors' playlists are at most a few hundred long).
+    pub async fn playlist(&self, playlist_id: u64) -> anyhow::Result<Vec<Track>> {
+        Ok(self.get::<List<Track>>(&format!("/playlist/{playlist_id}/tracks?limit={PLAYLIST_LIMIT}")).await?.data)
     }
 
     pub async fn genre_artists(&self, genre_id: u32) -> anyhow::Result<Vec<ArtistRef>> {

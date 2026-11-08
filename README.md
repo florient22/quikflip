@@ -34,12 +34,12 @@ Needs TrueNAS SCALE 24.10 or newer (apps run on Docker) and Podman on your lapto
 
 1. Build the image and save it to a file:
    ```sh
-   podman build -t localhost/quikflip:0.3.0 .
-   podman save -o quikflip-0.3.0.tar localhost/quikflip:0.3.0
+   podman build -t localhost/quikflip:0.3.1 .
+   podman save -o quikflip-0.3.1.tar localhost/quikflip:0.3.1
    ```
-2. Copy `quikflip-0.3.0.tar` to the NAS (an SMB share works) and load it in the TrueNAS shell (System > Shell):
+2. Copy `quikflip-0.3.1.tar` to the NAS (an SMB share works) and load it in the TrueNAS shell (System > Shell):
    ```sh
-   sudo docker load -i /mnt/tank/path/to/quikflip-0.3.0.tar
+   sudo docker load -i /mnt/tank/path/to/quikflip-0.3.1.tar
    ```
 3. Create a dataset for the data, for example `tank/apps/quikflip`, with the "Apps" preset so user 568 owns it.
 4. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.

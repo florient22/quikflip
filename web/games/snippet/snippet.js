@@ -19,6 +19,7 @@ const LABEL_MAX_CHARS = 22;
 const LEVEL_GAIN = 3.2;
 // What a suggestion puts between title and artist; the server splits a guess on it.
 const TITLE_ARTIST_SEPARATOR = ' — ';
+const CHARTS = ['world', 'local'];
 const MODES = ['mix', 'random', 'genre'];
 const GENRES = ['pop', 'hiphop', 'rock', 'dance', 'rnb', 'alternative', 'electro', 'metal', 'soul', 'latin', 'chanson', 'dutch'];
 const CLIP_LENGTHS = ['easy', 'normal', 'hard'];
@@ -48,6 +49,8 @@ const STRINGS = {
     waiting: 'Today’s tape is still being recorded. Check back soon.',
     album: 'Album: {album}', deezer: 'Listen on Deezer', nextIn: 'Next tape in {time}', empty: 'Type a song first.',
     audioFailed: 'The tape won’t play. Check your connection and try again.', noAudio: 'This browser can’t play audio clips.',
+    charts: 'Charts', 'charts.world': 'Worldwide', 'charts.world.help': 'Global hits and Deezer’s international genre playlists',
+    'charts.local': 'Local', 'charts.local.help': 'The charts of the country QuikFlip runs in (Belgium for a Belgian server)',
     mode: 'Songs', 'mode.mix': 'Daily mix', 'mode.mix.help': 'A popular song from any genre',
     'mode.random': 'Random genre', 'mode.random.help': 'A different genre every day, shown as a hint',
     'mode.genre': 'One genre', 'mode.genre.help': 'Always the genre below',
@@ -76,6 +79,8 @@ const STRINGS = {
     waiting: 'La cassette du jour est encore en enregistrement. Reviens bientôt.',
     album: 'Album : {album}', deezer: 'Écouter sur Deezer', nextIn: 'Prochaine cassette dans {time}', empty: 'Tape d’abord une chanson.',
     audioFailed: 'La cassette ne veut pas jouer. Vérifie ta connexion et réessaie.', noAudio: 'Ce navigateur ne peut pas lire les extraits audio.',
+    charts: 'Classements', 'charts.world': 'Monde', 'charts.world.help': 'Les tubes mondiaux et les playlists internationales de Deezer par genre',
+    'charts.local': 'Local', 'charts.local.help': 'Les classements du pays où tourne QuikFlip (la Belgique pour un serveur belge)',
     mode: 'Chansons', 'mode.mix': 'Mix du jour', 'mode.mix.help': 'Une chanson populaire, tous genres confondus',
     'mode.random': 'Genre au hasard', 'mode.random.help': 'Un genre différent chaque jour, donné en indice',
     'mode.genre': 'Un seul genre', 'mode.genre.help': 'Toujours le genre ci-dessous',
@@ -104,6 +109,8 @@ const STRINGS = {
     waiting: 'De cassette van vandaag wordt nog opgenomen. Kom straks terug.',
     album: 'Album: {album}', deezer: 'Luister op Deezer', nextIn: 'Volgende cassette over {time}', empty: 'Typ eerst een nummer.',
     audioFailed: 'De cassette wil niet spelen. Controleer je verbinding en probeer opnieuw.', noAudio: 'Deze browser kan geen audiofragmenten afspelen.',
+    charts: 'Hitlijsten', 'charts.world': 'Wereldwijd', 'charts.world.help': 'Wereldhits en de internationale genreplaylists van Deezer',
+    'charts.local': 'Lokaal', 'charts.local.help': 'De hitlijsten van het land waar QuikFlip draait (België voor een Belgische server)',
     mode: 'Nummers', 'mode.mix': 'Dagmix', 'mode.mix.help': 'Een populair nummer uit elk genre',
     'mode.random': 'Willekeurig genre', 'mode.random.help': 'Elke dag een ander genre, als hint getoond',
     'mode.genre': 'Eén genre', 'mode.genre.help': 'Altijd het genre hieronder',
@@ -511,6 +518,10 @@ function openSettings() {
   const current = settings.snippet;
   settingsForm.innerHTML = `
     <fieldset>
+      <legend>${escapeHtml(t('charts'))}</legend>
+      ${CHARTS.map(charts => `<label class="option"><input type="radio" name="charts" value="${charts}" ${current.charts === charts ? 'checked' : ''}><span>${escapeHtml(t(`charts.${charts}`))}<small>${escapeHtml(t(`charts.${charts}.help`))}</small></span></label>`).join('')}
+    </fieldset>
+    <fieldset>
       <legend>${escapeHtml(t('mode'))}</legend>
       ${MODES.map(mode => `<label class="option"><input type="radio" name="mode" value="${mode}" ${current.mode === mode ? 'checked' : ''}><span>${escapeHtml(t(`mode.${mode}`))}<small>${escapeHtml(t(`mode.${mode}.help`))}</small></span></label>`).join('')}
     </fieldset>
@@ -532,10 +543,11 @@ function openSettings() {
     const previous = settings.snippet;
     elements.genre.disabled = elements.mode.value !== 'genre';
     try {
-      settings = await api.saveSnippetSettings({ mode: elements.mode.value, genre: elements.genre.value, clips: elements.clips.value });
+      settings = await api.saveSnippetSettings({ charts: elements.charts.value, mode: elements.mode.value, genre: elements.genre.value, clips: elements.clips.value });
       errorLine.hidden = true;
       await reloadGame();
     } catch {
+      elements.charts.value = previous.charts;
       elements.mode.value = previous.mode;
       elements.genre.value = previous.genre;
       elements.clips.value = previous.clips;

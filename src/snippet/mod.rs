@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use crate::day::{self, format_day};
 use crate::error::AppError;
-use crate::settings::{Language, SnippetGenre, SnippetMode, SnippetSettings};
+use crate::settings::{ChartSource, Language, SnippetGenre, SnippetMode, SnippetSettings};
 use crate::text;
 
 pub const MAX_GUESSES: usize = 6;
@@ -19,6 +19,8 @@ pub const MAX_GUESSES: usize = 6;
 pub const FULL_SECONDS: f64 = 30.0;
 pub const MIX: &str = "mix";
 pub const RANDOM: &str = "random";
+/// Between the chart source and the mode or genre in a variant: "world/pop".
+pub const SOURCE_SEPARATOR: char = '/';
 const MAX_GUESS_CHARS: usize = 200;
 const SUGGESTION_LIMIT: usize = 8;
 const SUGGESTION_SCAN: i64 = 300;
@@ -57,6 +59,7 @@ pub struct Answer {
 pub struct State {
     pub date: String,
     pub variant: String,
+    pub charts: ChartSource,
     pub mode: SnippetMode,
     /// Today's genre, shown as a hint in the random and genre modes.
     pub genre: Option<String>,
@@ -78,18 +81,23 @@ pub struct Suggestion {
     pub artist: String,
 }
 
-/// The puzzle key for the player's settings: "mix", "random" or a genre code.
-pub fn variant(settings: &SnippetSettings) -> &'static str {
-    match settings.mode {
+/// The puzzle key for the player's settings: the chart source, then "mix", "random" or a genre code ("world/pop").
+pub fn variant(settings: &SnippetSettings) -> String {
+    let choice = match settings.mode {
         SnippetMode::Mix => MIX,
         SnippetMode::Random => RANDOM,
         SnippetMode::Genre => settings.genre.code(),
-    }
+    };
+    format!("{}{SOURCE_SEPARATOR}{choice}", settings.charts.code())
 }
 
-/// Every puzzle the generator prepares each day, so switching modes or genres works right away.
-pub fn all_variants() -> Vec<&'static str> {
-    [MIX, RANDOM].into_iter().chain(SnippetGenre::ALL.iter().map(|genre| genre.code())).collect()
+/// Every puzzle the generator prepares each day, so switching charts, modes or genres works right away.
+pub fn all_variants() -> Vec<String> {
+    let choices: Vec<&str> = [MIX, RANDOM].into_iter().chain(SnippetGenre::ALL.iter().map(|genre| genre.code())).collect();
+    ChartSource::ALL
+        .iter()
+        .flat_map(|source| choices.iter().map(move |choice| format!("{}{SOURCE_SEPARATOR}{choice}", source.code())))
+        .collect()
 }
 
 struct Song {
@@ -140,8 +148,8 @@ fn finished(status: Status) -> bool {
 pub fn state(connection: &Connection, today: NaiveDate, settings: &SnippetSettings) -> Result<State, AppError> {
     let day = format_day(today);
     let variant = variant(settings);
-    let song = load_song(connection, &day, variant)?;
-    let guesses = if song.is_some() { load_guesses(connection, &day, variant)? } else { Vec::new() };
+    let song = load_song(connection, &day, &variant)?;
+    let guesses = if song.is_some() { load_guesses(connection, &day, &variant)? } else { Vec::new() };
     let status = if song.is_some() { status_of(&guesses) } else { Status::Waiting };
     let done = finished(status);
     let has_cover = done
@@ -151,7 +159,8 @@ pub fn state(connection: &Connection, today: NaiveDate, settings: &SnippetSettin
             .unwrap_or(false);
     Ok(State {
         date: day,
-        variant: variant.to_owned(),
+        variant: variant.clone(),
+        charts: settings.charts,
         mode: settings.mode,
         genre: song.as_ref().filter(|song| song.genre != MIX).map(|song| song.genre.clone()),
         status,
@@ -203,11 +212,11 @@ fn record(connection: &Connection, day: &str, variant: &str, kind: &str, typed: 
 }
 
 /// The song for today, refusing when it is not ready or already finished.
-fn playable(connection: &Connection, today: NaiveDate, settings: &SnippetSettings) -> Result<(String, &'static str, Song), AppError> {
+fn playable(connection: &Connection, today: NaiveDate, settings: &SnippetSettings) -> Result<(String, String, Song), AppError> {
     let day = format_day(today);
     let variant = variant(settings);
-    let song = load_song(connection, &day, variant)?.ok_or_else(|| AppError::bad_request("not_ready", "Today's song is not ready yet."))?;
-    if finished(status_of(&load_guesses(connection, &day, variant)?)) {
+    let song = load_song(connection, &day, &variant)?.ok_or_else(|| AppError::bad_request("not_ready", "Today's song is not ready yet."))?;
+    if finished(status_of(&load_guesses(connection, &day, &variant)?)) {
         return Err(AppError::bad_request("finished", "Today's song is already finished."));
     }
     Ok((day, variant, song))
@@ -223,13 +232,13 @@ pub fn guess(connection: &Connection, today: NaiveDate, typed: &str, settings: &
     }
     let (day, variant, song) = playable(connection, today, settings)?;
     let kind = if is_right(typed, &song.title, &song.artist) { RIGHT } else { WRONG };
-    record(connection, &day, variant, kind, typed)?;
+    record(connection, &day, &variant, kind, typed)?;
     state(connection, today, settings)
 }
 
 pub fn skip(connection: &Connection, today: NaiveDate, settings: &SnippetSettings) -> Result<State, AppError> {
     let (day, variant, _) = playable(connection, today, settings)?;
-    record(connection, &day, variant, SKIP, "")?;
+    record(connection, &day, &variant, SKIP, "")?;
     state(connection, today, settings)
 }
 
@@ -298,11 +307,11 @@ mod tests {
         migrate(&mut connection).unwrap();
         connection
             .execute(
-                "INSERT INTO snippet_songs VALUES (?1, 'mix', 'mix', 1, 'Paper Satellites', 'Mira Vale', 7, 'Small Hours', 'https://example.invalid')",
+                "INSERT INTO snippet_songs VALUES (?1, 'world/mix', 'mix', 1, 'Paper Satellites', 'Mira Vale', 7, 'Small Hours', 'https://example.invalid')",
                 params![TODAY],
             )
             .unwrap();
-        connection.execute("INSERT INTO snippet_audio VALUES (?1, 'mix', zeroblob(30000), NULL)", params![TODAY]).unwrap();
+        connection.execute("INSERT INTO snippet_audio VALUES (?1, 'world/mix', zeroblob(30000), NULL)", params![TODAY]).unwrap();
         connection
     }
 
@@ -350,13 +359,15 @@ mod tests {
         assert_eq!(tile_marks(&game), vec!["right".to_owned()]);
         let other = SnippetSettings { mode: SnippetMode::Genre, ..SnippetSettings::default() };
         assert_eq!(state(&connection, today(), &other).unwrap().status, Status::Waiting);
+        let local = SnippetSettings { charts: ChartSource::Local, ..SnippetSettings::default() };
+        assert_eq!(state(&connection, today(), &local).unwrap().variant, "local/mix");
     }
 
     #[test]
     fn suggestions_need_every_word() {
         let connection = connection_with_song();
-        connection.execute("INSERT INTO snippet_catalog VALUES (1, 'Paper Satellites', 'Mira Vale', 7, 'pop', 900, 'paper satellites mira vale')", []).unwrap();
-        connection.execute("INSERT INTO snippet_catalog VALUES (2, 'Paperweight', 'Holloway', 8, 'rock', 950, 'paperweight holloway')", []).unwrap();
+        connection.execute("INSERT INTO snippet_catalog VALUES (1, 'world/pop', 'Paper Satellites', 'Mira Vale', 7, 900, 'paper satellites mira vale')", []).unwrap();
+        connection.execute("INSERT INTO snippet_catalog VALUES (2, 'local/rock', 'Paperweight', 'Holloway', 8, 950, 'paperweight holloway')", []).unwrap();
         assert_eq!(suggest(&connection, "paper").unwrap().len(), 2);
         let found = suggest(&connection, "Paper Mira").unwrap();
         assert_eq!(found.len(), 1);

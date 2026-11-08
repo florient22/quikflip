@@ -48,6 +48,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Panels set their own display, which would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
 html { background: var(--wall); }
 body {
   margin: 0;
@@ -230,7 +232,6 @@ button, input, select { font: inherit; color: inherit; }
 
 /* ---------- Guess strip: masking tape ---------- */
 .guess { position: relative; display: flex; gap: 0.7rem; align-items: center; }
-.guess[hidden] { display: none; }
 .tape-strip {
   position: relative; flex: 1; min-width: 0;
   /* Torn ends on both sides of the masking tape. */

@@ -203,6 +203,29 @@ const MIGRATIONS: &[&str] = &[
         FOREIGN KEY (day, variant) REFERENCES snippet_songs (day, variant)
     ) STRICT;
     ",
+    // 5: Snippet chart sources. Variants and catalog pools get a source prefix ("world/pop", "local/mix"); everything
+    // stored so far came from the local (country) charts. A track may now sit in several pools.
+    r"
+    PRAGMA defer_foreign_keys = ON;
+    UPDATE snippet_songs SET variant = 'local/' || variant;
+    UPDATE snippet_audio SET variant = 'local/' || variant;
+    UPDATE snippet_guesses SET variant = 'local/' || variant;
+
+    CREATE TABLE snippet_catalog_pools (
+        track_id  INTEGER NOT NULL,
+        pool      TEXT NOT NULL,
+        title     TEXT NOT NULL,
+        artist    TEXT NOT NULL,
+        artist_id INTEGER NOT NULL,
+        rank      INTEGER NOT NULL,
+        search    TEXT NOT NULL,
+        PRIMARY KEY (track_id, pool)
+    ) STRICT;
+    INSERT INTO snippet_catalog_pools (track_id, pool, title, artist, artist_id, rank, search)
+        SELECT track_id, 'local/' || genre, title, artist, artist_id, rank, search FROM snippet_catalog;
+    DROP TABLE snippet_catalog;
+    ALTER TABLE snippet_catalog_pools RENAME TO snippet_catalog;
+    ",
 ];
 
 /// One SQLite connection shared by all requests. QuikFlip has a single player, so one connection is plenty.

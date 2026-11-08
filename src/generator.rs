@@ -114,7 +114,7 @@ async fn snippet_tasks(deezer: &Deezer, connection: &mut Connection, today: Naiv
     let mut missing = Vec::new();
     for day in days(today) {
         for variant in snippet::all_variants() {
-            match snippet::generate::has_song(connection, &format_day(day), variant) {
+            match snippet::generate::has_song(connection, &format_day(day), &variant) {
                 Ok(true) => {}
                 Ok(false) => missing.push((day, variant)),
                 Err(error) => summary.record(&format!("Snippet {} {variant}", format_day(day)), Err(error)),
@@ -122,12 +122,11 @@ async fn snippet_tasks(deezer: &Deezer, connection: &mut Connection, today: Naiv
         }
     }
     if !missing.is_empty() {
-        if let Err(error) = snippet::generate::refresh_catalog(deezer, connection).await {
-            // Older catalog entries may still be enough, so carry on.
-            tracing::warn!("Snippet: could not refresh the charts: {error:#}");
-        }
+        // Lists that fail are logged and skipped; older catalog entries may still be enough.
+        let added = snippet::generate::refresh_catalog(deezer, connection).await;
+        tracing::info!("Snippet: {added} chart entries refreshed");
         for (day, variant) in missing {
-            let made = snippet::generate::generate(deezer, connection, day, variant).await.map(|()| true);
+            let made = snippet::generate::generate(deezer, connection, day, &variant).await.map(|()| true);
             summary.record(&format!("Snippet {} {variant}", format_day(day)), made);
         }
     }

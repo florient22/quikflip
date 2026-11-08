@@ -44,6 +44,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Panels set their own display, which would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { margin: 0; overflow: hidden; background: var(--page); color: var(--text); font-family: var(--font-body); font-size: var(--fs-body); line-height: 1.4; }
 h1, h2, p { margin: 0; }

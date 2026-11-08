@@ -221,6 +221,32 @@ impl SnippetGenre {
     }
 }
 
+/// Which charts Snippet's songs come from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ChartSource {
+    /// Deezer's worldwide top and its editors' international genre playlists.
+    #[default]
+    World,
+    /// Deezer's charts for the country the generator runs in (Belgium on a Belgian NAS).
+    Local,
+}
+
+impl ChartSource {
+    pub const ALL: [ChartSource; 2] = [ChartSource::World, ChartSource::Local];
+
+    pub fn code(self) -> &'static str {
+        match self {
+            ChartSource::World => "world",
+            ChartSource::Local => "local",
+        }
+    }
+
+    pub fn from_code(code: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|source| source.code() == code)
+    }
+}
+
 /// How long Snippet's clips are, from the first clip to the last.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -245,6 +271,7 @@ impl ClipLength {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct SnippetSettings {
+    pub charts: ChartSource,
     pub mode: SnippetMode,
     /// Used when the mode is Genre.
     pub genre: SnippetGenre,

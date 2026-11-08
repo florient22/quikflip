@@ -53,6 +53,8 @@
 }
 
 * { box-sizing: border-box; }
+/* Panels set their own display, which would otherwise override the hidden attribute. */
+[hidden] { display: none !important; }
 html { background: var(--paper); transition: background 300ms; }
 body {
   margin: 0;
