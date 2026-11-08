@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Letterlock</title>
+  <link rel="icon" href="../../icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../fonts/fonts.css">
+  <link rel="stylesheet" href="../../css/dialog.css">
+  <link rel="stylesheet" href="letterlock.css">
+  <script type="module" src="letterlock.js"></script>
+</head>
+<body>
+  <main class="sheet" id="sheet">
+    <svg class="reg-mark tl" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="M9 0v18M0 9h18"/></svg>
+    <svg class="reg-mark tr" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="M9 0v18M0 9h18"/></svg>
+    <svg class="reg-mark bl" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="M9 0v18M0 9h18"/></svg>
+    <svg class="reg-mark br" viewBox="0 0 18 18" aria-hidden="true"><circle cx="9" cy="9" r="5"/><path d="M9 0v18M0 9h18"/></svg>
+
+    <header class="top">
+      <a class="round-btn" id="back" href="../../"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <div class="masthead">
+        <h1 class="title"><span class="title-accent" aria-hidden="true">LETTERLOCK</span><span class="title-ink">LETTERLOCK</span></h1>
+        <p class="dateline" id="dateline"></p>
+      </div>
+      <div class="top-actions">
+        <button type="button" class="round-btn" id="help"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8M12 17.3v.2"/></svg></button>
+        <button type="button" class="round-btn" id="open-settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></button>
+      </div>
+    </header>
+
+    <div class="heist">
+      <section class="scene mood-idle" id="scene">
+        <div class="lock-row">
+          <svg class="lock-art" viewBox="0 0 260 250" aria-hidden="true">
+            <defs>
+              <pattern id="dots-ink" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle class="dot-ink" cx="2.5" cy="2.5" r="1.1"/></pattern>
+              <pattern id="dots-accent" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(-15)"><circle class="dot-accent" cx="2.5" cy="2.5" r="1.5"/></pattern>
+            </defs>
+            <g class="layer"><ellipse class="f-dots" cx="130" cy="238" rx="78" ry="9"/></g>
+            <g class="lock" id="lock">
+              <g class="shackle" id="shackle">
+                <g class="layer layer-accent"><path class="shackle-accent" d="M80 124 V84 a50 50 0 0 1 100 0 V124"/></g>
+                <g class="layer"><path class="shackle-ink" d="M80 124 V84 a50 50 0 0 1 100 0 V124"/></g>
+              </g>
+              <g class="layer">
+                <rect class="f-ink" x="88" y="214" width="22" height="20" rx="8"/>
+                <rect class="f-ink" x="150" y="214" width="22" height="20" rx="8"/>
+                <rect class="f-paper" x="36" y="108" width="188" height="114" rx="28"/>
+                <rect class="f-dots" x="36" y="108" width="188" height="114" rx="28"/>
+                <rect class="s-ink" x="36" y="108" width="188" height="114" rx="28"/>
+                <g class="eye"><circle class="f-paper" cx="98" cy="152" r="17"/><circle class="s-ink thin" cx="98" cy="152" r="17"/><circle class="f-ink pupil" cx="98" cy="154" r="7.5"/><rect class="f-ink lid" x="80" y="134" width="36" height="36" rx="17"/><rect class="f-ink lid blink" x="80" y="134" width="36" height="36" rx="17"/></g>
+                <g class="eye"><circle class="f-paper" cx="162" cy="152" r="17"/><circle class="s-ink thin" cx="162" cy="152" r="17"/><circle class="f-ink pupil" cx="162" cy="154" r="7.5"/><rect class="f-ink lid" x="144" y="134" width="36" height="36" rx="17"/><rect class="f-ink lid blink" x="144" y="134" width="36" height="36" rx="17"/></g>
+                <g class="dizzy-eyes"><path class="s-ink" d="M86 140l24 24M110 140l-24 24"/></g>
+                <g class="dizzy-eyes"><path class="s-ink" d="M150 140l24 24M174 140l-24 24"/></g>
+                <path class="s-ink brow brow-l" d="M80 126 Q96 118 112 126"/>
+                <path class="s-ink brow brow-r" d="M148 126 Q164 118 180 126"/>
+                <path class="s-ink" id="mouth" d="M118 186 Q130 192 142 186"/>
+                <circle class="f-ink" cx="130" cy="203" r="5"/><path class="f-ink" d="M127 205h6l2 10h-10z"/>
+                <path class="s-ink sweat" d="M206 112 q5 8 0 12 q-5 -4 0 -12z"/>
+              </g>
+              <g class="layer layer-accent">
+                <rect class="f-accent" x="50" y="116" width="160" height="10" rx="5"/>
+                <circle class="f-dots-accent blush" cx="74" cy="182" r="12"/>
+                <circle class="f-dots-accent blush" cx="186" cy="182" r="12"/>
+              </g>
+            </g>
+          </svg>
+          <div>
+            <div class="pins" id="pins" role="img"></div>
+            <p class="pins-label" id="pins-label"></p>
+          </div>
+        </div>
+        <p class="bubble" id="bubble" aria-live="polite"></p>
+        <div class="sfx" id="sfx" aria-hidden="true"></div>
+      </section>
+
+      <section class="play" id="play">
+        <div class="board" id="board" role="grid"></div>
+        <div class="keys" id="keys"></div>
+        <div class="end" id="end" hidden></div>
+      </section>
+    </div>
+
+    <footer class="colour-bar">
+      <div class="swatches" aria-hidden="true">
+        <span class="swatch"><i style="--c: var(--ink)"></i></span>
+        <span class="swatch"><i style="--c: var(--accent)"></i></span>
+        <span class="swatch"><i style="--c: var(--hit)"></i></span>
+        <span class="swatch"><i style="--c: var(--near)"></i></span>
+      </div>
+      <span id="footer-note"></span>
+    </footer>
+  </main>
+</body>
+</html>

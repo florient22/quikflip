@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Rarefind</title>
+  <link rel="icon" href="../../icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../fonts/fonts.css">
+  <link rel="stylesheet" href="../../css/dialog.css">
+  <link rel="stylesheet" href="rarefind.css">
+  <script type="module" src="rarefind.js"></script>
+</head>
+<body>
+  <div class="viewport mood-idle" id="viewport">
+    <div class="sky"></div>
+    <div class="stars"></div>
+    <div class="camera" id="camera">
+      <div id="clouds"></div>
+      <div id="landmarks"></div>
+      <div class="houses" id="houses" aria-hidden="true"></div>
+      <div class="ground"></div>
+      <div class="tower" id="tower"></div>
+      <div class="mast" aria-hidden="true"></div>
+      <div class="crane-top" aria-hidden="true">
+        <div class="jib"></div><div class="counter-jib"></div>
+        <div class="cab"><span class="eye"></span><span class="eye"></span><span class="mouth"></span></div>
+        <div class="hook"><span class="rope"></span><div class="crate" id="crate">?</div></div>
+      </div>
+    </div>
+
+    <header class="hud-top">
+      <a class="hud-btn" id="back" href="../../"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+      <section class="prompt-card">
+        <div class="prompt-meta"><span class="wordmark">RAREFIND</span><span id="meta"></span></div>
+        <h1 class="prompt" id="prompt"></h1>
+      </section>
+      <div class="hud-right">
+        <div class="height-card"><span class="height-value" id="height">0 m</span><span class="height-next" id="next-landmark"></span></div>
+        <div class="hud-buttons">
+          <button type="button" class="hud-btn" id="help"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8M12 17.3v.2"/></svg></button>
+          <button type="button" class="hud-btn" id="open-settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></button>
+        </div>
+      </div>
+    </header>
+
+    <div class="banner" id="banner" aria-hidden="true"></div>
+    <div class="points" id="points" aria-hidden="true"></div>
+
+    <div class="hud-bottom">
+      <p class="speech" id="speech" aria-live="polite"><span class="speech-cab" aria-hidden="true"></span><span id="speech-text"></span></p>
+      <button type="button" class="start-btn" id="start" hidden></button>
+      <form class="build-bar" id="build-form" hidden>
+        <label class="sr-only" for="answer" id="answer-label"></label>
+        <input id="answer" autocomplete="off" spellcheck="false" enterkeyhint="send">
+        <button type="submit" class="build-btn" id="build"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M6 10l6 6 6-6M4 20h16"/></svg><span id="build-label"></span></button>
+      </form>
+      <p class="status" id="status" aria-live="polite"></p>
+    </div>
+
+    <section class="summary" id="summary" hidden></section>
+  </div>
+</body>
+</html>

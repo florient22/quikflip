@@ -1,0 +1,294 @@
+use std::path::Path;
+
+use axum::extract::{Query, State};
+use axum::routing::{get, post, put};
+use axum::{Json, Router};
+use serde::{Deserialize, Serialize};
+use tower_http::services::ServeDir;
+
+use crate::day::{Clock, format_day};
+use crate::db::Db;
+use crate::error::AppError;
+use crate::settings::{self, AllSettings, AppSettings, Language, LetterlockSettings, RarefindSettings};
+use crate::{letterlock, rarefind};
+
+#[derive(Clone)]
+pub struct AppState {
+    pub db: Db,
+    pub clock: Clock,
+}
+
+pub fn router(state: AppState, web_dir: &Path) -> Router {
+    Router::new()
+        .route("/api/home", get(home))
+        .route("/api/settings", get(get_settings))
+        .route("/api/settings/app", put(put_app_settings))
+        .route("/api/settings/letterlock", put(put_letterlock_settings))
+        .route("/api/settings/rarefind", put(put_rarefind_settings))
+        .route("/api/letterlock", get(get_letterlock))
+        .route("/api/letterlock/guess", post(post_guess))
+        .route("/api/rarefind", get(get_rarefind))
+        .route("/api/rarefind/start", post(post_rarefind_start))
+        .route("/api/rarefind/answer", post(post_rarefind_answer))
+        .route("/api/rarefind/expire", post(post_rarefind_expire))
+        .route("/api/rarefind/contest", post(post_rarefind_contest))
+        .fallback_service(ServeDir::new(web_dir).append_index_html_on_directories(true))
+        .with_state(state)
+}
+
+fn now_ms() -> i64 {
+    chrono::Utc::now().timestamp_millis()
+}
+
+/// One tile on the homepage. Each game fills the picture field it uses.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct GameSummary {
+    id: &'static str,
+    status: &'static str,
+    used: usize,
+    max: usize,
+    streak: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    marks: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tiers: Option<Vec<Option<u8>>>,
+}
+
+fn letterlock_status(status: letterlock::Status) -> &'static str {
+    match status {
+        letterlock::Status::New => "new",
+        letterlock::Status::Progress => "progress",
+        letterlock::Status::Solved => "solved",
+        letterlock::Status::Failed => "failed",
+    }
+}
+
+fn rarefind_status(status: rarefind::Status) -> &'static str {
+    match status {
+        rarefind::Status::Waiting => "waiting",
+        rarefind::Status::New => "new",
+        rarefind::Status::Progress => "progress",
+        rarefind::Status::Solved => "solved",
+    }
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HomeSummary {
+    date: String,
+    seconds_to_reset: i64,
+    language: Language,
+    games: Vec<GameSummary>,
+}
+
+async fn home(State(state): State<AppState>) -> Result<Json<HomeSummary>, AppError> {
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let app = settings::app(connection)?;
+            let lock = letterlock::state(connection, today, app.language, &settings::letterlock(connection)?)?;
+            let find = rarefind::state(connection, today, app.language, &settings::rarefind(connection)?, now_ms())?;
+            let finished_prompts = find.prompts.iter().filter(|prompt| matches!(prompt.outcome, rarefind::Outcome::Answered | rarefind::Outcome::TimedOut)).count();
+            Ok(Json(HomeSummary {
+                date: format_day(today),
+                seconds_to_reset,
+                language: app.language,
+                games: vec![
+                    GameSummary {
+                        id: "letterlock",
+                        status: letterlock_status(lock.status),
+                        used: lock.guesses.len(),
+                        max: lock.max_guesses,
+                        streak: lock.streak,
+                        marks: Some(lock.guesses.into_iter().map(|guess| guess.marks).collect()),
+                        tiers: None,
+                    },
+                    GameSummary {
+                        id: "rarefind",
+                        status: rarefind_status(find.status),
+                        used: finished_prompts,
+                        max: rarefind::PROMPT_COUNT,
+                        streak: find.streak,
+                        marks: None,
+                        tiers: Some(rarefind::tile_tiers(&find)),
+                    },
+                ],
+            }))
+        })
+        .await
+}
+
+async fn get_settings(State(state): State<AppState>) -> Result<Json<AllSettings>, AppError> {
+    state.db.call(|connection| Ok(Json(settings::all(connection)?))).await
+}
+
+async fn put_app_settings(State(state): State<AppState>, Json(value): Json<AppSettings>) -> Result<Json<AllSettings>, AppError> {
+    state
+        .db
+        .call(move |connection| {
+            settings::save_app(connection, &value)?;
+            Ok(Json(settings::all(connection)?))
+        })
+        .await
+}
+
+async fn put_letterlock_settings(
+    State(state): State<AppState>,
+    Json(value): Json<LetterlockSettings>,
+) -> Result<Json<AllSettings>, AppError> {
+    state
+        .db
+        .call(move |connection| {
+            settings::save_letterlock(connection, &value)?;
+            Ok(Json(settings::all(connection)?))
+        })
+        .await
+}
+
+async fn put_rarefind_settings(State(state): State<AppState>, Json(value): Json<RarefindSettings>) -> Result<Json<AllSettings>, AppError> {
+    state
+        .db
+        .call(move |connection| {
+            settings::save_rarefind(connection, &value)?;
+            Ok(Json(settings::all(connection)?))
+        })
+        .await
+}
+
+#[derive(Deserialize)]
+struct LanguageQuery {
+    lang: Option<String>,
+}
+
+/// The game state plus the time until the next word, so the page can count down and roll over at midnight.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LetterlockResponse {
+    #[serde(flatten)]
+    state: letterlock::State,
+    seconds_to_reset: i64,
+}
+
+/// The requested language, or the app language when none is given.
+fn resolve_language(requested: Option<&str>, app: &AppSettings) -> Result<Language, AppError> {
+    match requested {
+        None => Ok(app.language),
+        Some(code) => Language::from_code(code).ok_or_else(|| AppError::bad_request("invalid_language", format!("Unknown language {code:?}."))),
+    }
+}
+
+async fn get_letterlock(State(state): State<AppState>, Query(query): Query<LanguageQuery>) -> Result<Json<LetterlockResponse>, AppError> {
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let language = resolve_language(query.lang.as_deref(), &settings::app(connection)?)?;
+            let game = letterlock::state(connection, today, language, &settings::letterlock(connection)?)?;
+            Ok(Json(LetterlockResponse { state: game, seconds_to_reset }))
+        })
+        .await
+}
+
+#[derive(Deserialize)]
+struct GuessBody {
+    word: String,
+    lang: Option<String>,
+}
+
+async fn post_guess(State(state): State<AppState>, Json(body): Json<GuessBody>) -> Result<Json<LetterlockResponse>, AppError> {
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let language = resolve_language(body.lang.as_deref(), &settings::app(connection)?)?;
+            let game_settings = settings::letterlock(connection)?;
+            let game = letterlock::submit(connection, today, language, &body.word, &game_settings)?;
+            Ok(Json(LetterlockResponse { state: game, seconds_to_reset }))
+        })
+        .await
+}
+
+/// Rarefind's state, the time until tomorrow's puzzle, and (after an answer) what happened to it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct RarefindResponse {
+    #[serde(flatten)]
+    state: rarefind::State,
+    seconds_to_reset: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    result: Option<rarefind::AnswerResult>,
+}
+
+#[derive(Deserialize)]
+struct PositionBody {
+    position: usize,
+    lang: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct TextBody {
+    position: usize,
+    text: String,
+    lang: Option<String>,
+}
+
+/// Runs one Rarefind action with the player's language and settings, and wraps the result for the browser.
+async fn rarefind_call<F>(state: AppState, lang: Option<String>, action: F) -> Result<Json<RarefindResponse>, AppError>
+where
+    F: FnOnce(&mut rusqlite::Connection, chrono::NaiveDate, Language, &RarefindSettings, i64) -> Result<(rarefind::State, Option<rarefind::AnswerResult>), AppError>
+        + Send
+        + 'static,
+{
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let language = resolve_language(lang.as_deref(), &settings::app(connection)?)?;
+            let game_settings = settings::rarefind(connection)?;
+            let (game, result) = action(connection, today, language, &game_settings, now_ms())?;
+            Ok(Json(RarefindResponse { state: game, seconds_to_reset, result }))
+        })
+        .await
+}
+
+async fn get_rarefind(State(state): State<AppState>, Query(query): Query<LanguageQuery>) -> Result<Json<RarefindResponse>, AppError> {
+    rarefind_call(state, query.lang, |connection, today, language, settings, now| {
+        Ok((rarefind::state(connection, today, language, settings, now)?, None))
+    })
+    .await
+}
+
+async fn post_rarefind_start(State(state): State<AppState>, Json(body): Json<PositionBody>) -> Result<Json<RarefindResponse>, AppError> {
+    rarefind_call(state, body.lang, move |connection, today, language, settings, now| {
+        Ok((rarefind::start(connection, today, language, body.position, settings, now)?, None))
+    })
+    .await
+}
+
+async fn post_rarefind_answer(State(state): State<AppState>, Json(body): Json<TextBody>) -> Result<Json<RarefindResponse>, AppError> {
+    rarefind_call(state, body.lang, move |connection, today, language, settings, now| {
+        let (game, result) = rarefind::answer(connection, today, language, body.position, &body.text, settings, now)?;
+        Ok((game, Some(result)))
+    })
+    .await
+}
+
+async fn post_rarefind_expire(State(state): State<AppState>, Json(body): Json<PositionBody>) -> Result<Json<RarefindResponse>, AppError> {
+    rarefind_call(state, body.lang, move |connection, today, language, settings, now| {
+        Ok((rarefind::expire(connection, today, language, body.position, settings, now)?, None))
+    })
+    .await
+}
+
+async fn post_rarefind_contest(State(state): State<AppState>, Json(body): Json<TextBody>) -> Result<Json<RarefindResponse>, AppError> {
+    rarefind_call(state, body.lang, move |connection, today, language, settings, now| {
+        Ok((rarefind::contest(connection, today, language, body.position, &body.text, settings, now)?, None))
+    })
+    .await
+}

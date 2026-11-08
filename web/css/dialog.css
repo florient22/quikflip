@@ -1,0 +1,26 @@
+/* The shared dialog. Pages theme it through these tokens; the fallbacks keep it readable anywhere. */
+.app-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  padding: 0;
+  border: var(--dialog-border, 0);
+  border-radius: var(--dialog-radius, 1.2rem);
+  background: var(--dialog-bg, #ffffff);
+  color: var(--dialog-text, #16181d);
+  font-family: var(--dialog-font, system-ui, sans-serif);
+  box-shadow: var(--dialog-shadow, 0 24px 60px rgb(0 0 0 / 0.3));
+}
+.app-dialog::backdrop { background: rgb(10 12 16 / 0.5); backdrop-filter: blur(3px); }
+.dialog-body { display: flex; flex-direction: column; gap: clamp(0.75rem, 1vw + 0.5rem, 1.25rem); padding: clamp(1rem, 2vw + 0.5rem, 1.75rem); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.dialog-title { margin: 0; font-family: var(--dialog-title-font, inherit); font-size: clamp(1.15rem, 1vw + 0.9rem, 1.5rem); }
+.dialog-content { display: grid; gap: 0.75rem; font-size: clamp(0.9rem, 0.3vw + 0.82rem, 1rem); line-height: 1.5; }
+.dialog-content p { margin: 0; }
+.dialog-x { display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.dialog-x svg { width: 1.2rem; height: 1.2rem; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.dialog-x:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.dialog-foot { display: flex; justify-content: flex-end; }
+.dialog-button {
+  padding: 0.6em 1.2em; border: 0; border-radius: var(--dialog-button-radius, 999px);
+  background: var(--dialog-accent, #16181d); color: var(--dialog-on-accent, #ffffff);
+  font: inherit; font-weight: 700; cursor: pointer;
+}
