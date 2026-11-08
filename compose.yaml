@@ -1,9 +1,10 @@
 # TrueNAS SCALE: Apps > Discover Apps > Custom App (Install via YAML).
-# Before installing: sign the NAS in to ghcr.io (see README.md), change the dataset path (twice) and paste your
-# token from `claude setup-token`. To update, change the version in both image lines.
+# Before installing: sign the NAS in to ghcr.io (see README.md) and paste your token from `claude setup-token`.
+# To update, change the version in both image lines. The database lives in the quikflip-data volume, which Docker
+# creates on first start and keeps across updates.
 services:
   quikflip:
-    image: ghcr.io/florient22/quikflip:0.3.3
+    image: ghcr.io/florient22/quikflip:0.3.4
     container_name: quikflip
     restart: unless-stopped
     user: "568:568"
@@ -12,11 +13,11 @@ services:
     environment:
       QUIKFLIP_TIMEZONE: Europe/Brussels
     volumes:
-      - /mnt/tank/apps/quikflip:/data   # replace "tank" with your pool; the dataset must be owned by user 568 (apps)
+      - quikflip-data:/data
 
   # Makes puzzles ahead of time (Claude for Rarefind and Atlas Hunt, Deezer for Snippet) and judges contested answers; checks every hour.
   quikflip-generator:
-    image: ghcr.io/florient22/quikflip:0.3.3
+    image: ghcr.io/florient22/quikflip:0.3.4
     container_name: quikflip-generator
     restart: unless-stopped
     user: "568:568"
@@ -26,4 +27,7 @@ services:
       QUIKFLIP_LANGUAGES: en,fr,nl      # drop languages you never play to use less of your subscription
       CLAUDE_CODE_OAUTH_TOKEN: paste-the-token-from-claude-setup-token-here
     volumes:
-      - /mnt/tank/apps/quikflip:/data   # the same dataset as above
+      - quikflip-data:/data   # the same volume as above
+
+volumes:
+  quikflip-data:

@@ -37,7 +37,7 @@ The code lives in a private GitHub repository (`florient22/quikflip`). Pushing a
 1. Set the new version in `Cargo.toml` and in both `image:` lines of `compose.yaml`, then commit.
 2. Tag and push:
    ```sh
-   git tag v0.3.3
+   git tag v0.3.4
    git push && git push --tags
    ```
 3. Watch the build under the repository's Actions tab (about 10 minutes the first time, a few minutes after that). It fails on purpose if the tag and the `Cargo.toml` version differ. Private repositories get a monthly allowance of free Actions minutes, which is plenty for this.
@@ -50,25 +50,34 @@ The code lives in a private GitHub repository (`florient22/quikflip`). Pushing a
    sudo docker login ghcr.io -u florient22
    ```
    and paste the token when asked.
-3. Create a dataset for the data, for example `tank/apps/quikflip`, with the "Apps" preset so user 568 owns it.
-4. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.
-5. Apps > Discover Apps > the three-dot menu > Install via YAML. Paste `compose.yaml` after changing `/mnt/tank/apps/quikflip` (twice) to your dataset and pasting the Claude token into `CLAUDE_CODE_OAUTH_TOKEN`.
-6. Open `http://<nas-address>:8080`. Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language (the very first run also writes a few hundred Atlas fun facts). The generator's log is under the app's `quikflip-generator` container.
+3. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.
+4. Apps > Discover Apps > the three-dot menu > Install via YAML. Paste `compose.yaml` after pasting the Claude token into `CLAUDE_CODE_OAUTH_TOKEN`. Docker creates the `quikflip-data` volume for the database by itself.
+5. Open `http://<nas-address>:8080`. Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language (the very first run also writes a few hundred Atlas fun facts). The generator's log is under the app's `quikflip-generator` container.
 
 ### Update
 
-Publish a new version (above), then edit the app's YAML in TrueNAS and change the tag in both `image:` lines; TrueNAS pulls the new image and restarts the app. The database migrates itself on start; take a TrueNAS snapshot of the dataset first.
+Publish a new version (above), then edit the app's YAML in TrueNAS and change the tag in both `image:` lines; TrueNAS pulls the new image and restarts the app. The database migrates itself on start and stays in the `quikflip-data` volume.
+
+### Back up
+
+The volume sits in TrueNAS's own Docker storage, so dataset snapshots don't cover it. To copy the database out, stop the app, run this in System > Shell (any folder on one of your datasets works), then start the app again:
+
+```sh
+sudo docker cp quikflip:/data /mnt/tank/backups/quikflip-$(date +%F)
+```
+
+Deleting the app can delete its volume too, and with it your history and streaks; back up first.
 
 ### Without GitHub
 
 To build on your own machine instead (Podman: `sudo dnf install podman` on Fedora, Podman Desktop on Windows):
 
 ```sh
-podman build -t ghcr.io/florient22/quikflip:0.3.3 .
-podman save -o quikflip-0.3.3.tar ghcr.io/florient22/quikflip:0.3.3
+podman build -t ghcr.io/florient22/quikflip:0.3.4 .
+podman save -o quikflip-0.3.4.tar ghcr.io/florient22/quikflip:0.3.4
 ```
 
-Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.3.3.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
+Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.3.4.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
 
 ## Word lists, country data, fonts and libraries
 

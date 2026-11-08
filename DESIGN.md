@@ -62,7 +62,7 @@ Dark mode uses pure black backgrounds (OLED); cards and panels sit a hair above 
 TrueNAS SCALE (custom app from compose.yaml)
 ├── quikflip (serve)     Rust + axum: JSON API + static front end
 ├── quikflip (generate)  same image, runs the nightly Claude batch   [added with Rarefind]
-└── /data (dataset)      quikflip.sqlite3, backed up by TrueNAS snapshots
+└── /data (volume)       quikflip.sqlite3 in the quikflip-data Docker volume
 ```
 
 - One Rust binary, `quikflip`, with subcommands. The web server never calls the AI. Puzzles are generated ahead of time, so the AI is never in the request path.

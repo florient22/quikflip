@@ -28,8 +28,10 @@ ENV QUIKFLIP_DATA_DIR=/data \
     DISABLE_AUTOUPDATER=1 \
     HOME=/tmp
 EXPOSE 8080
+# 568 is the "apps" user TrueNAS SCALE runs apps as. A new named volume copies this folder's owner, so the
+# folder must exist and belong to 568 before VOLUME, or the app could not write its database.
+RUN mkdir /data && chown 568:568 /data
 VOLUME /data
-# 568 is the "apps" user TrueNAS SCALE uses for app datasets.
 USER 568:568
 ENTRYPOINT ["/app/quikflip"]
 CMD ["serve"]
