@@ -52,7 +52,35 @@ The code lives in a private GitHub repository (`florient22/quikflip`). Pushing a
    and paste the token when asked.
 3. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.
 4. Apps > Discover Apps > the three-dot menu > Install via YAML. Paste `compose.yaml` after pasting the Claude token into `CLAUDE_CODE_OAUTH_TOKEN`. Docker creates the `quikflip-data` volume for the database by itself.
-5. Open `http://<nas-address>:8080`. Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language (the very first run also writes a few hundred Atlas fun facts). The generator's log is under the app's `quikflip-generator` container.
+5. Open `http://<nas-address>:8090` (the first number under `ports:` in `compose.yaml`; change it if another app already uses that port). Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language (the very first run also writes a few hundred Atlas fun facts). The generator's log is under the app's `quikflip-generator` container.
+
+### Web UI button and icon
+
+The `x-portals` block in `compose.yaml` adds the "Web UI" button, but TrueNAS only reads it on install. If the app was installed without it: Apps > quikflip > Edit, copy the YAML (it holds your Claude token), delete the app, and install it again via YAML with that text plus the `x-portals` block.
+
+Custom apps get no icon from the YAML. To show QuikFlip's own icon, run this in System > Shell while the app is running, then reload the Apps page (Ctrl+Shift+R). TrueNAS may reset it when you edit the app; run it again then.
+
+```sh
+sudo python3 - <<'EOF'
+import base64, subprocess, yaml
+svg = subprocess.run(["docker", "exec", "quikflip", "cat", "/app/web/icon.svg"], check=True, capture_output=True).stdout
+icon = "data:image/svg+xml;base64," + base64.b64encode(svg).decode()
+for path, app_keys in [("/mnt/.ix-apps/metadata.yaml", ["quikflip"]), ("/mnt/.ix-apps/app_configs/quikflip/metadata.yaml", [])]:
+    try:
+        with open(path) as file:
+            data = yaml.safe_load(file)
+        entry = data
+        for key in app_keys:
+            entry = entry[key]
+        entry["metadata"]["icon"] = icon
+    except (OSError, KeyError, TypeError) as error:
+        print(f"skipped {path}: {error!r}")
+        continue
+    with open(path, "w") as file:
+        yaml.safe_dump(data, file, sort_keys=False)
+    print(f"icon set in {path}")
+EOF
+```
 
 ### Update
 

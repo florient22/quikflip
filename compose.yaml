@@ -9,7 +9,7 @@ services:
     restart: unless-stopped
     user: "568:568"
     ports:
-      - "8080:8080"
+      - "8090:8080"   # NAS port:container port; change only the first number if 8090 is taken, and the port under x-portals too
     environment:
       QUIKFLIP_TIMEZONE: Europe/Brussels
     volumes:
@@ -31,3 +31,12 @@ services:
 
 volumes:
   quikflip-data:
+
+# The "Web UI" button on the app's page in TrueNAS. TrueNAS only reads this when the app is first installed,
+# not when the YAML is edited later. 0.0.0.0 stands for the NAS's own address.
+x-portals:
+  - name: Web UI
+    scheme: http
+    host: 0.0.0.0
+    port: 8090
+    path: /
