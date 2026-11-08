@@ -4,6 +4,8 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY words ./words
+# Atlas Hunt's country list is compiled into the server as well as served to the browser.
+COPY web/games/atlas/data/countries.json ./web/games/atlas/data/countries.json
 RUN cargo build --release --locked
 
 # Run: Debian with the binary, the front end and the Claude Code CLI (used only by the generator service).

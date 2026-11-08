@@ -62,7 +62,7 @@ pub struct PuzzlePrompt {
     pub answers: Vec<(String, String, u8)>,
 }
 
-fn language_name(language: Language) -> &'static str {
+pub(crate) fn language_name(language: Language) -> &'static str {
     match language {
         Language::En => "English",
         Language::Fr => "French (standard French; Belgian usage is welcome)",

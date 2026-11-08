@@ -1,6 +1,8 @@
 use std::path::Path;
 
 use axum::extract::{Query, State};
+use axum::http::{StatusCode, header};
+use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
@@ -9,8 +11,14 @@ use tower_http::services::ServeDir;
 use crate::day::{Clock, format_day};
 use crate::db::Db;
 use crate::error::AppError;
-use crate::settings::{self, AllSettings, AppSettings, Language, LetterlockSettings, RarefindSettings};
-use crate::{letterlock, rarefind};
+use crate::settings::{self, AllSettings, AppSettings, AtlasSettings, Language, LetterlockSettings, RarefindSettings, SnippetSettings};
+use crate::{atlas, letterlock, rarefind, snippet};
+
+/// Clips and covers depend on how far the player is, so the browser must never reuse an old copy.
+const NO_STORE: &str = "no-store";
+const MP3_TYPE: &str = "audio/mpeg";
+/// Deezer album covers are JPEG.
+const COVER_TYPE: &str = "image/jpeg";
 
 #[derive(Clone)]
 pub struct AppState {
@@ -32,6 +40,16 @@ pub fn router(state: AppState, web_dir: &Path) -> Router {
         .route("/api/rarefind/answer", post(post_rarefind_answer))
         .route("/api/rarefind/expire", post(post_rarefind_expire))
         .route("/api/rarefind/contest", post(post_rarefind_contest))
+        .route("/api/settings/atlas", put(put_atlas_settings))
+        .route("/api/atlas", get(get_atlas))
+        .route("/api/atlas/pick", post(post_atlas_pick))
+        .route("/api/settings/snippet", put(put_snippet_settings))
+        .route("/api/snippet", get(get_snippet))
+        .route("/api/snippet/guess", post(post_snippet_guess))
+        .route("/api/snippet/skip", post(post_snippet_skip))
+        .route("/api/snippet/clip", get(get_snippet_clip))
+        .route("/api/snippet/cover", get(get_snippet_cover))
+        .route("/api/snippet/suggest", get(get_snippet_suggest))
         .fallback_service(ServeDir::new(web_dir).append_index_html_on_directories(true))
         .with_state(state)
 }
@@ -64,6 +82,25 @@ fn letterlock_status(status: letterlock::Status) -> &'static str {
     }
 }
 
+fn atlas_status(status: atlas::Status) -> &'static str {
+    match status {
+        atlas::Status::Waiting => "waiting",
+        atlas::Status::New => "new",
+        atlas::Status::Progress => "progress",
+        atlas::Status::Solved => "solved",
+    }
+}
+
+fn snippet_status(status: snippet::Status) -> &'static str {
+    match status {
+        snippet::Status::Waiting => "waiting",
+        snippet::Status::New => "new",
+        snippet::Status::Progress => "progress",
+        snippet::Status::Solved => "solved",
+        snippet::Status::Failed => "failed",
+    }
+}
+
 fn rarefind_status(status: rarefind::Status) -> &'static str {
     match status {
         rarefind::Status::Waiting => "waiting",
@@ -92,6 +129,9 @@ async fn home(State(state): State<AppState>) -> Result<Json<HomeSummary>, AppErr
             let lock = letterlock::state(connection, today, app.language, &settings::letterlock(connection)?)?;
             let find = rarefind::state(connection, today, app.language, &settings::rarefind(connection)?, now_ms())?;
             let finished_prompts = find.prompts.iter().filter(|prompt| matches!(prompt.outcome, rarefind::Outcome::Answered | rarefind::Outcome::TimedOut)).count();
+            let hunt = atlas::state(connection, today, app.language, &settings::atlas(connection)?)?;
+            let finished_clues = hunt.clues.iter().filter(|clue| matches!(clue.outcome, atlas::Outcome::Found | atlas::Outcome::Lost)).count();
+            let song = snippet::state(connection, today, &settings::snippet(connection)?)?;
             Ok(Json(HomeSummary {
                 date: format_day(today),
                 seconds_to_reset,
@@ -114,6 +154,24 @@ async fn home(State(state): State<AppState>) -> Result<Json<HomeSummary>, AppErr
                         streak: find.streak,
                         marks: None,
                         tiers: Some(rarefind::tile_tiers(&find)),
+                    },
+                    GameSummary {
+                        id: "atlas",
+                        status: atlas_status(hunt.status),
+                        used: finished_clues,
+                        max: atlas::CLUE_COUNT,
+                        streak: hunt.streak,
+                        marks: None,
+                        tiers: Some(atlas::tile_tiers(&hunt)),
+                    },
+                    GameSummary {
+                        id: "snippet",
+                        status: snippet_status(song.status),
+                        used: song.guesses.len(),
+                        max: song.max_guesses,
+                        streak: song.streak,
+                        marks: Some(snippet::tile_marks(&song)),
+                        tiers: None,
                     },
                 ],
             }))
@@ -291,4 +349,149 @@ async fn post_rarefind_contest(State(state): State<AppState>, Json(body): Json<T
         Ok((rarefind::contest(connection, today, language, body.position, &body.text, settings, now)?, None))
     })
     .await
+}
+
+async fn put_atlas_settings(State(state): State<AppState>, Json(value): Json<AtlasSettings>) -> Result<Json<AllSettings>, AppError> {
+    state
+        .db
+        .call(move |connection| {
+            settings::save_atlas(connection, &value)?;
+            Ok(Json(settings::all(connection)?))
+        })
+        .await
+}
+
+/// Atlas Hunt's state, the time until tomorrow's clues, and (after a pick) what happened to it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AtlasResponse {
+    #[serde(flatten)]
+    state: atlas::State,
+    seconds_to_reset: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    result: Option<atlas::PickResult>,
+}
+
+async fn get_atlas(State(state): State<AppState>, Query(query): Query<LanguageQuery>) -> Result<Json<AtlasResponse>, AppError> {
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let language = resolve_language(query.lang.as_deref(), &settings::app(connection)?)?;
+            let game = atlas::state(connection, today, language, &settings::atlas(connection)?)?;
+            Ok(Json(AtlasResponse { state: game, seconds_to_reset, result: None }))
+        })
+        .await
+}
+
+#[derive(Deserialize)]
+struct PickBody {
+    position: usize,
+    country: String,
+    lang: Option<String>,
+}
+
+async fn post_atlas_pick(State(state): State<AppState>, Json(body): Json<PickBody>) -> Result<Json<AtlasResponse>, AppError> {
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let language = resolve_language(body.lang.as_deref(), &settings::app(connection)?)?;
+            let game_settings = settings::atlas(connection)?;
+            let (game, result) = atlas::pick(connection, today, language, body.position, body.country.trim(), &game_settings)?;
+            Ok(Json(AtlasResponse { state: game, seconds_to_reset, result: Some(result) }))
+        })
+        .await
+}
+
+async fn put_snippet_settings(State(state): State<AppState>, Json(value): Json<SnippetSettings>) -> Result<Json<AllSettings>, AppError> {
+    state
+        .db
+        .call(move |connection| {
+            settings::save_snippet(connection, &value)?;
+            Ok(Json(settings::all(connection)?))
+        })
+        .await
+}
+
+/// Snippet's state plus the time until tomorrow's song.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SnippetResponse {
+    #[serde(flatten)]
+    state: snippet::State,
+    seconds_to_reset: i64,
+}
+
+/// Runs one Snippet action with the player's settings and wraps the result for the browser.
+async fn snippet_call<F>(state: AppState, action: F) -> Result<Json<SnippetResponse>, AppError>
+where
+    F: FnOnce(&mut rusqlite::Connection, chrono::NaiveDate, &SnippetSettings) -> Result<snippet::State, AppError> + Send + 'static,
+{
+    let today = state.clock.today();
+    let seconds_to_reset = state.clock.seconds_until_next_day();
+    state
+        .db
+        .call(move |connection| {
+            let game_settings = settings::snippet(connection)?;
+            let game = action(connection, today, &game_settings)?;
+            Ok(Json(SnippetResponse { state: game, seconds_to_reset }))
+        })
+        .await
+}
+
+async fn get_snippet(State(state): State<AppState>) -> Result<Json<SnippetResponse>, AppError> {
+    snippet_call(state, |connection, today, settings| snippet::state(connection, today, settings)).await
+}
+
+#[derive(Deserialize)]
+struct GuessTextBody {
+    text: String,
+}
+
+async fn post_snippet_guess(State(state): State<AppState>, Json(body): Json<GuessTextBody>) -> Result<Json<SnippetResponse>, AppError> {
+    snippet_call(state, move |connection, today, settings| snippet::guess(connection, today, &body.text, settings)).await
+}
+
+async fn post_snippet_skip(State(state): State<AppState>) -> Result<Json<SnippetResponse>, AppError> {
+    snippet_call(state, |connection, today, settings| snippet::skip(connection, today, settings)).await
+}
+
+fn bytes_response(content_type: &'static str, bytes: Vec<u8>) -> Response {
+    ([(header::CONTENT_TYPE, content_type), (header::CACHE_CONTROL, NO_STORE)], bytes).into_response()
+}
+
+async fn get_snippet_clip(State(state): State<AppState>) -> Result<Response, AppError> {
+    let today = state.clock.today();
+    state
+        .db
+        .call(move |connection| {
+            let clip = snippet::clip(connection, today, &settings::snippet(connection)?)?;
+            Ok(bytes_response(MP3_TYPE, clip))
+        })
+        .await
+}
+
+async fn get_snippet_cover(State(state): State<AppState>) -> Result<Response, AppError> {
+    let today = state.clock.today();
+    state
+        .db
+        .call(move |connection| {
+            Ok(match snippet::cover(connection, today, &settings::snippet(connection)?)? {
+                Some(cover) => bytes_response(COVER_TYPE, cover),
+                None => StatusCode::NOT_FOUND.into_response(),
+            })
+        })
+        .await
+}
+
+#[derive(Deserialize)]
+struct SuggestQuery {
+    q: String,
+}
+
+async fn get_snippet_suggest(State(state): State<AppState>, Query(query): Query<SuggestQuery>) -> Result<Json<Vec<snippet::Suggestion>>, AppError> {
+    state.db.call(move |connection| Ok(Json(snippet::suggest(connection, &query.q)?))).await
 }

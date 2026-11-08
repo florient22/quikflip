@@ -164,6 +164,30 @@ button { font: inherit; color: inherit; }
 .tower-row .t-3 { background: #3f8cff; height: 1.05em; }
 .tower-row .t-4 { background: #e7b53b; height: 1.25em; }
 .tower-row .t-5 { background: #b14bff; height: 1.5em; box-shadow: 0 0 6px #ff4fd8; }
+/* Atlas Hunt's result picture: five moons, bigger and brighter for rarer finds. */
+.moon-row { display: inline-flex; gap: 0.3em; align-items: center; font-size: 0.95rem; color: var(--muted); }
+.face-back .moon-row { font-size: clamp(1.1rem, 1.2vw + 0.8rem, 1.6rem); color: var(--on-accent); }
+.moon-row span { width: 0.7em; aspect-ratio: 1; border-radius: 50%; background: color-mix(in srgb, currentColor 16%, transparent); }
+.moon-row .m-lost { background: repeating-linear-gradient(45deg, transparent 0 2px, color-mix(in srgb, currentColor 40%, transparent) 2px 4px); }
+.moon-row .m-1 { background: #cfd8e6; }
+.moon-row .m-2 { background: #5be3b5; width: 0.8em; }
+.moon-row .m-3 { background: #ffd166; width: 0.9em; }
+.moon-row .m-4 { background: #ff8a5b; width: 1.05em; }
+.moon-row .m-5 { background: #b48cff; width: 1.2em; box-shadow: 0 0 6px #b48cff; }
+
+/* Snippet's result picture: six clip strips, growing longer like the clips do. */
+.clip-row { display: inline-flex; gap: 0.18em; align-items: center; font-size: 0.95rem; color: var(--muted); }
+.face-back .clip-row { font-size: clamp(1.1rem, 1.2vw + 0.8rem, 1.6rem); color: var(--on-accent); }
+.clip-row span { height: 0.55em; border-radius: 999px; background: color-mix(in srgb, currentColor 16%, transparent); }
+.clip-row span:nth-child(1) { width: 0.5em; }
+.clip-row span:nth-child(2) { width: 0.7em; }
+.clip-row span:nth-child(3) { width: 0.9em; }
+.clip-row span:nth-child(4) { width: 1.1em; }
+.clip-row span:nth-child(5) { width: 1.3em; }
+.clip-row span:nth-child(6) { width: 1.5em; }
+.clip-row .c-skip { background: color-mix(in srgb, currentColor 45%, transparent); }
+.clip-row .c-wrong { background: var(--danger); }
+.clip-row .c-right { background: var(--hit); }
 .pill-waiting { background: var(--surface-2); color: var(--muted); }
 .day-bar [data-status="waiting"] { background: transparent; box-shadow: inset 0 0 0 1px var(--line); }
 

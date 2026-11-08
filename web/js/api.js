@@ -40,4 +40,15 @@ export const api = {
   rarefindAnswer: (position, text) => request('/api/rarefind/answer', { method: 'POST', body: { position, text } }),
   rarefindExpire: position => request('/api/rarefind/expire', { method: 'POST', body: { position } }),
   rarefindContest: (position, text) => request('/api/rarefind/contest', { method: 'POST', body: { position, text } }),
+  saveAtlasSettings: settings => request('/api/settings/atlas', { method: 'PUT', body: settings }),
+  atlas: () => request('/api/atlas'),
+  atlasPick: (position, country) => request('/api/atlas/pick', { method: 'POST', body: { position, country } }),
+  saveSnippetSettings: settings => request('/api/settings/snippet', { method: 'PUT', body: settings }),
+  snippet: () => request('/api/snippet'),
+  snippetGuess: text => request('/api/snippet/guess', { method: 'POST', body: { text } }),
+  snippetSkip: () => request('/api/snippet/skip', { method: 'POST' }),
+  snippetSuggest: query => request(`/api/snippet/suggest?q=${encodeURIComponent(query)}`),
+  // Audio and covers are binary; the pages fetch them directly from these addresses.
+  snippetClipUrl: '/api/snippet/clip',
+  snippetCoverUrl: '/api/snippet/cover',
 };

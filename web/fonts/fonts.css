@@ -62,3 +62,43 @@
   font-display: swap;
   src: url('manrope-0.woff2') format('woff2');
 }
+
+@font-face {
+  font-family: 'Unbounded';
+  font-style: normal;
+  font-weight: 600 900;
+  font-display: swap;
+  src: url('unbounded-0.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-weight: 500 700;
+  font-display: swap;
+  src: url('dm-sans-0.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Titan One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('titan-one-0.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Permanent Marker';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('permanent-marker-0.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Rubik';
+  font-style: normal;
+  font-weight: 500 800;
+  font-display: swap;
+  src: url('rubik-0.woff2') format('woff2');
+}

@@ -95,6 +95,114 @@ const MIGRATIONS: &[&str] = &[
         FOREIGN KEY (day, lang, position) REFERENCES rarefind_prompts (day, lang, position)
     ) STRICT;
     ",
+    // 3: Atlas Hunt. Days, clues and answers come from the generator; plays and misses from the player.
+    // Fun facts are a pool per country; shown_on marks a fact as used so it never comes back.
+    r"
+    CREATE TABLE atlas_days (
+        day    TEXT NOT NULL,
+        lang   TEXT NOT NULL,
+        region TEXT NOT NULL,
+        PRIMARY KEY (day, lang)
+    ) STRICT;
+
+    CREATE TABLE atlas_clues (
+        day      TEXT NOT NULL,
+        lang     TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        kind     TEXT NOT NULL,
+        clue     TEXT NOT NULL,
+        PRIMARY KEY (day, lang, position),
+        FOREIGN KEY (day, lang) REFERENCES atlas_days (day, lang) ON DELETE CASCADE
+    ) STRICT;
+
+    CREATE TABLE atlas_answers (
+        day      TEXT NOT NULL,
+        lang     TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        country  TEXT NOT NULL,
+        tier     INTEGER NOT NULL CHECK (tier BETWEEN 1 AND 5),
+        PRIMARY KEY (day, lang, position, country),
+        FOREIGN KEY (day, lang, position) REFERENCES atlas_clues (day, lang, position) ON DELETE CASCADE
+    ) STRICT;
+
+    CREATE TABLE atlas_plays (
+        day      TEXT NOT NULL,
+        lang     TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        outcome  TEXT NOT NULL DEFAULT 'playing' CHECK (outcome IN ('playing', 'found', 'lost')),
+        country  TEXT,
+        tier     INTEGER,
+        points   INTEGER NOT NULL DEFAULT 0,
+        fact     TEXT,
+        PRIMARY KEY (day, lang, position),
+        FOREIGN KEY (day, lang, position) REFERENCES atlas_clues (day, lang, position)
+    ) STRICT;
+
+    CREATE TABLE atlas_misses (
+        day      TEXT NOT NULL,
+        lang     TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        attempt  INTEGER NOT NULL,
+        country  TEXT NOT NULL,
+        PRIMARY KEY (day, lang, position, attempt),
+        FOREIGN KEY (day, lang, position) REFERENCES atlas_clues (day, lang, position)
+    ) STRICT;
+
+    CREATE TABLE atlas_facts (
+        id       INTEGER PRIMARY KEY,
+        lang     TEXT NOT NULL,
+        country  TEXT NOT NULL,
+        fact     TEXT NOT NULL,
+        shown_on TEXT,
+        UNIQUE (lang, country, fact)
+    ) STRICT;
+    CREATE INDEX atlas_facts_unseen ON atlas_facts (lang, country, shown_on);
+    ",
+    // 4: Snippet. The catalog feeds the guess suggestions; songs and their audio are picked by the generator.
+    // A track is used at most once (unique track_id). Audio is deleted once its day is over.
+    r"
+    CREATE TABLE snippet_catalog (
+        track_id  INTEGER PRIMARY KEY,
+        title     TEXT NOT NULL,
+        artist    TEXT NOT NULL,
+        artist_id INTEGER NOT NULL,
+        genre     TEXT NOT NULL,
+        rank      INTEGER NOT NULL,
+        search    TEXT NOT NULL
+    ) STRICT;
+
+    CREATE TABLE snippet_songs (
+        day       TEXT NOT NULL,
+        variant   TEXT NOT NULL,
+        genre     TEXT NOT NULL,
+        track_id  INTEGER NOT NULL UNIQUE,
+        title     TEXT NOT NULL,
+        artist    TEXT NOT NULL,
+        artist_id INTEGER NOT NULL,
+        album     TEXT NOT NULL,
+        link      TEXT NOT NULL,
+        PRIMARY KEY (day, variant)
+    ) STRICT;
+
+    CREATE TABLE snippet_audio (
+        day     TEXT NOT NULL,
+        variant TEXT NOT NULL,
+        mp3     BLOB NOT NULL,
+        cover   BLOB,
+        PRIMARY KEY (day, variant),
+        FOREIGN KEY (day, variant) REFERENCES snippet_songs (day, variant)
+    ) STRICT;
+
+    CREATE TABLE snippet_guesses (
+        day     TEXT NOT NULL,
+        variant TEXT NOT NULL,
+        attempt INTEGER NOT NULL,
+        kind    TEXT NOT NULL CHECK (kind IN ('skip', 'wrong', 'right')),
+        typed   TEXT NOT NULL DEFAULT '',
+        PRIMARY KEY (day, variant, attempt),
+        FOREIGN KEY (day, variant) REFERENCES snippet_songs (day, variant)
+    ) STRICT;
+    ",
 ];
 
 /// One SQLite connection shared by all requests. QuikFlip has a single player, so one connection is plenty.

@@ -2,7 +2,7 @@
 # Before installing: change the dataset path (twice) and paste your token from `claude setup-token`.
 services:
   quikflip:
-    image: localhost/quikflip:0.2.0
+    image: localhost/quikflip:0.3.0
     pull_policy: never          # the image is loaded onto the NAS by hand; see README.md
     container_name: quikflip
     restart: unless-stopped
@@ -14,9 +14,9 @@ services:
     volumes:
       - /mnt/tank/apps/quikflip:/data   # replace "tank" with your pool; the dataset must be owned by user 568 (apps)
 
-  # Makes puzzles ahead of time with Claude and judges contested answers; checks every hour.
+  # Makes puzzles ahead of time (Claude for Rarefind and Atlas Hunt, Deezer for Snippet) and judges contested answers; checks every hour.
   quikflip-generator:
-    image: localhost/quikflip:0.2.0
+    image: localhost/quikflip:0.3.0
     pull_policy: never
     container_name: quikflip-generator
     restart: unless-stopped

@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Snippet</title>
+  <link rel="icon" href="../../icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../../fonts/fonts.css">
+  <link rel="stylesheet" href="../../css/dialog.css">
+  <link rel="stylesheet" href="snippet.css">
+  <script type="module" src="snippet.js"></script>
+</head>
+<body>
+<main class="page">
+  <header class="top">
+    <a class="chunky-btn" id="back" href="../../"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></a>
+    <div class="masthead">
+      <h1 class="title">SNIPPET</h1>
+      <p class="dateline" id="dateline"></p>
+    </div>
+    <div class="top-buttons">
+      <button type="button" class="chunky-btn" id="help"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.8M12 17.3v.2"/></svg></button>
+      <button type="button" class="chunky-btn" id="open-settings"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.2l2.1 2.1M17.7 15.7l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.8l2.1-2.1M17.7 8.3l2.1-2.1"/></svg></button>
+    </div>
+  </header>
+
+  <section class="stage">
+    <div class="tape-wrap mood-idle" id="tape-wrap">
+      <p class="bubble" id="bubble" aria-live="polite"></p>
+      <svg class="cassette" viewBox="0 0 360 240" aria-hidden="true">
+        <g class="cassette-body">
+          <rect class="c-shell o" x="6" y="8" width="348" height="222" rx="20"/>
+          <circle class="c-screw o thin" cx="24" cy="26" r="5"/><circle class="c-screw o thin" cx="336" cy="26" r="5"/>
+          <circle class="c-screw o thin" cx="24" cy="212" r="5"/><circle class="c-screw o thin" cx="336" cy="212" r="5"/>
+          <rect class="c-cream o" x="30" y="20" width="300" height="134" rx="10"/>
+          <rect class="c-orange" x="32" y="126" width="296" height="12"/><rect class="c-brick" x="32" y="138" width="296" height="12"/>
+          <text class="c-label-text" id="label-text" x="48" y="48" font-size="20"></text>
+          <text class="c-side" x="300" y="50" font-size="24">A</text>
+          <path class="marker-line brow brow-l" d="M100 60 Q122 52 146 60"/>
+          <path class="marker-line brow brow-r" d="M214 60 Q238 52 260 60"/>
+          <rect class="c-window o" x="76" y="66" width="208" height="54" rx="27"/>
+          <!-- Reels: wound tape, then the white hub as the eyeball, the teeth as a spinning iris. -->
+          <circle class="c-tape" id="tape-left" cx="128" cy="93" r="24"/>
+          <circle class="c-tape" id="tape-right" cx="232" cy="93" r="16"/>
+          <g class="eye-look">
+            <circle class="c-hub o mid" cx="128" cy="93" r="15"/>
+            <circle class="c-hub o mid" cx="232" cy="93" r="15"/>
+            <g class="teeth"><path class="o mid round" d="M128 80v6M128 100v6M115 93h6M135 93h6"/><circle class="c-pupil" cx="128" cy="93" r="5"/></g>
+            <g class="teeth"><path class="o mid round" d="M232 80v6M232 100v6M219 93h6M239 93h6"/><circle class="c-pupil" cx="232" cy="93" r="5"/></g>
+          </g>
+          <g class="ff-lines"><path class="o round" d="M40 84h22M44 98h18M40 112h22"/></g>
+          <path class="c-shell-dark o" d="M90 230 L106 170 H254 L270 230 Z"/>
+          <circle class="c-hole o mid" cx="130" cy="210" r="7"/><circle class="c-hole o mid" cx="230" cy="210" r="7"/>
+          <path class="mouth" id="mouth" d="M160 196 Q180 208 200 196"/>
+          <path class="spill" pathLength="1" d="M180 226 C 168 250, 120 240, 128 262 S 196 286, 170 300 S 96 300, 110 318"/>
+          <g class="pencil">
+            <rect class="pencil-wood" x="124" y="20" width="8" height="74" rx="1"/>
+            <path class="pencil-tip" d="M124 20 L128 8 L132 20 Z"/>
+            <rect class="pencil-eraser" x="124" y="88" width="8" height="8"/>
+          </g>
+        </g>
+      </svg>
+      <div class="sfx" id="sfx" aria-hidden="true"></div>
+    </div>
+    <aside class="jcard" id="jcard">
+      <h2 id="jcard-title"></h2>
+      <ol id="history"></ol>
+      <div class="reveal" id="reveal" hidden></div>
+    </aside>
+  </section>
+
+  <section class="deck" id="deck">
+    <svg class="vu" viewBox="0 0 120 80" aria-hidden="true">
+      <rect class="vu-face" x="2" y="2" width="116" height="76" rx="10"/>
+      <path class="vu-ticks" d="M22 44 L26 47 M33 33 L36 37 M46 26 L48 30 M60 23 V28 M74 26 L72 30 M87 33 L84 37 M98 44 L94 47"/>
+      <path class="vu-red" d="M80 27 A44 44 0 0 1 100 46"/>
+      <text class="vu-label" x="50" y="62">VU</text>
+      <line class="vu-needle" id="needle" x1="60" y1="66" x2="60" y2="22"/>
+    </svg>
+    <div class="counter"><div class="counter-digits" id="counter"><span>0</span><span>0</span><span>0</span></div><span id="counter-label"></span></div>
+    <div class="keys">
+      <button type="button" class="piano-key play" id="play-btn"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z"/></svg><span id="play-label"></span></button>
+      <button type="button" class="piano-key" id="skip-btn"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6v12l7-6zM12 6v12l7-6z"/></svg><span id="skip-label"></span></button>
+    </div>
+    <div class="clip-bar" id="clip-bar" aria-hidden="true"></div>
+  </section>
+
+  <form class="guess" id="guess-form" autocomplete="off">
+    <label class="sr-only" for="guess-input" id="guess-label"></label>
+    <div class="tape-strip"><input id="guess-input" spellcheck="false" enterkeyhint="send" aria-autocomplete="list" aria-controls="suggest"></div>
+    <button type="submit" class="guess-btn" id="guess-btn"></button>
+    <ul class="suggest" id="suggest" hidden></ul>
+  </form>
+  <p class="status" id="status" aria-live="polite"></p>
+</main>
+</body>
+</html>

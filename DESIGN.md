@@ -20,13 +20,15 @@ Mockups (claude.ai artifacts): homepage option A, the Letterlock, Rarefind, Atla
 | Letterlock | Built |
 | Generator (`quikflip generate --loop`, Claude Code CLI) | Built |
 | Rarefind (Skyline) | Built |
-| Atlas Hunt, Snippet | Planned |
+| Atlas Hunt (Tiny Planet) | Built |
+| Snippet (Mixtape) | Built |
 
 Dark mode uses pure black backgrounds (OLED); cards and panels sit a hair above black so their edges stay visible.
 
 ## Generator
 
-- Runs as a second container from the same image: `quikflip generate --loop`. Each hour it makes sure puzzles exist for today and the next 2 days, in every language in `QUIKFLIP_LANGUAGES`, then judges pending contests. A missed night (NAS off, Claude unavailable) is caught up on the next pass.
+- Runs as a second container from the same image: `quikflip generate --loop`. Each hour it makes sure puzzles exist for today and the next 2 days (Rarefind and Atlas Hunt in every language in `QUIKFLIP_LANGUAGES`, Snippet for every mode and genre), tops up Atlas Hunt's fun facts, then judges pending contests. A missed night (NAS off, Claude or Deezer unavailable) is caught up on the next pass.
+- Snippet needs no AI: its songs come from Deezer, so Snippet keeps working even without a Claude token.
 - Calls `claude -p --output-format json --tools "" --json-schema …`, authenticated with `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (your subscription). Tools are switched off; the CLI validates the answer against the schema, and QuikFlip validates it again.
 - Rejected output is sent back once more with the reasons (up to 3 attempts); a day that still fails stays "not ready" and is retried an hour later.
 
@@ -37,6 +39,22 @@ Dark mode uses pure black backgrounds (OLED); cards and panels sit a hair above 
 - Tiers 1 to 5 score 10, 25, 50, 80 and 100 points and build concrete, brick, glass, gold or neon floors.
 - Contests: after the day, a rejected answer can be contested once per prompt. The next generator pass asks Claude for a verdict; an accepted answer is added to the list and the prompt keeps the better score.
 - Settings: time per prompt (25 s, 45 s, off), applied from the next prompt you start.
+
+## Atlas Hunt
+
+- 5 clues a day per language. Pick one country per clue, by clicking the planet or typing its name (any language, official names and common spellings work). Every country that fits scores; rarer picks score more (the same 10 to 100 points as Rarefind) and rise higher, launching a bigger moon onto a wider orbit. A country can be used once a day. Three misses lose the clue, and the rarest answers are shown.
+- Clues come in two kinds. Data clues are computed from the country list (borders, official languages, currencies, subregions, landlocked, island nations, number of neighbours, size, first letter of the name in your language), so their answers are complete and correct; Claude only words them and rates rarity. Theme clues (flags, sport, food, history, nature, landmarks, culture, inventions, geography records, famous people) are invented by Claude, which must list every fitting country by code; codes outside the region or list are rejected. Each day has 3 data clues and 2 theme clues, in random order.
+- Repeats: a data clue (for example "borders Germany") rests 60 days; themes rotate least-recently-used first; invented clues are checked against the last 90 days by wording.
+- Fun facts: a pool per country and language. When you find a country you get one you have never seen, and it is marked as shown so it never comes back. The generator keeps at least 2 unseen facts for every country that can be found in the coming days.
+- Settings: region (whole world, Europe, Africa, Americas, Asia, Oceania) and fun facts on or off. A new region applies from tomorrow: later puzzles made for the old region and not played yet are made again.
+- The planet is three.js; countries are drawn from Natural Earth 1:50m shapes. Very small countries (and Tuvalu, which has no shape at that scale) get a hexagonal column instead of a raised outline. The page needs WebGL.
+
+## Snippet
+
+- One song a day per mode and genre; six chances. Each skip or wrong guess unlocks a longer clip. A guess is right when the title matches (versions, "feat." parts and a typo or two are ignored); if you add " — artist" the artist must match too. Suggestions come from a local catalog of chart songs, so typing never calls Deezer.
+- The server cuts the MP3 at whole frames and sends only the seconds you have unlocked; the full 30-second preview and the album cover are sent only after the song is finished.
+- Songs: Deezer's charts (all genres for the daily mix, plus 12 genre charts), widened with genre artists' top tracks when a chart runs dry. A track is never used twice and an artist rests 30 days. The generator stores the preview and cover in the database and deletes the audio once the day is over (song details stay, for the history).
+- Settings, applied right away (every mode and genre has its own song each day): mode (daily mix, a random genre each day shown as a hint, or one genre), genre (pop, hip-hop, rock, dance, R&B, alternative, electro, metal, soul and funk, latin, French chanson, Dutch-language), and clip length (easy 2 to 24 s, normal 1 to 16 s, hard 0.5 to 15 s).
 
 ## Architecture
 
@@ -71,14 +89,14 @@ A day runs from midnight to midnight in `QUIKFLIP_TIMEZONE` (default `Europe/Bru
 The AI never touches the database. The code reads the history, builds the prompt, Claude generates, the code checks every item against the database, duplicates are regenerated, and only valid puzzles are stored.
 
 - Rarefind: the code picks today's categories (least recently used), sends the last ~90 days of prompts as "do not reuse", and rejects near-duplicates by word overlap. Accepted answers are stored per language. Contested answers are judged in the next nightly batch.
-- Atlas Hunt: clue types have a cooldown. Data-backed clues (borders, landlocked, flag colours, population) are computed from a country dataset; Claude writes the wording, rarity estimates and fun facts. Facts are stored per country with the date they were shown, so you never see the same fact twice.
-- Snippet: songs come from Deezer genre charts and playlists. The track id is unique in the database, and each artist gets a 30-day cooldown. Claude is optional, for themed days.
+- Atlas Hunt: data clues rest 60 days and themes rotate; data-backed answers are computed from the country list; Claude writes the wording, rarity estimates and fun facts. Facts are stored per country with the date they were shown, so you never see the same fact twice.
+- Snippet (no AI): the track id is unique in the database, and each artist gets a 30-day cooldown.
 
 ## Settings
 
 - App-wide: language (EN, FR, NL). The keyboard layout follows the language (QWERTY for English, AZERTY for French and Dutch).
 - Per game: stored as JSON with a version number in the `settings` table. Unknown or invalid values fall back to the defaults, so old settings keep working when options change.
-- Planned per game: Rarefind timer (25 s, 45 s, off) and categories; Atlas Hunt region and fun facts; Snippet mode (daily mix, random genre, fixed genre) and clip difficulty.
+- Per game: Letterlock ink set and hard mode; Rarefind timer (25 s, 45 s, off); Atlas Hunt region and fun facts; Snippet mode (daily mix, random genre, one genre), genre and clip length.
 
 ## Word list sources
 
@@ -90,3 +108,12 @@ The AI never touches the database. The code reads the history, builds the prompt
 | Answer ranking (all languages) | hermitdave/FrequencyWords, OpenSubtitles 2018 | CC BY-SA 4.0 |
 
 Answers are the most frequent words that are also in the dictionary list, minus plurals (English) and the words in `tools/blocklist-{lang}.txt`.
+
+## Other data and libraries
+
+| What | Source | Licence |
+|---|---|---|
+| Country names (EN/FR/NL), borders, languages, currencies, area (`web/games/atlas/data/countries.json`, built by `tools/build_countries.py`) | mledoze/countries | ODbL 1.0 |
+| Country shapes (`web/games/atlas/data/world.json`) | world-atlas 2.0.2 (Natural Earth 1:50m) | ISC; Natural Earth is public domain |
+| three.js 0.160, d3 7.9, topojson-client 3.1 (`web/vendor/`, fetched by `tools/fetch_vendor.py`) | npm | MIT, ISC, ISC |
+| Song previews and covers | Deezer API (free, no key), fetched by the generator | Deezer's terms; 30-second previews for personal use |

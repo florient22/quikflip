@@ -2,13 +2,13 @@
 
 pub mod generate;
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use chrono::{Days, NaiveDate};
+use chrono::NaiveDate;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 
-use crate::day::format_day;
+use crate::day::{self, format_day};
 use crate::error::AppError;
 use crate::settings::{Language, RarefindSettings};
 use crate::text;
@@ -205,17 +205,8 @@ pub fn streak(connection: &Connection, today: NaiveDate) -> Result<u32, AppError
     let mut statement = connection.prepare(
         "SELECT day FROM rarefind_plays WHERE outcome != ?1 GROUP BY day, lang HAVING COUNT(*) >= ?2",
     )?;
-    let done: HashSet<NaiveDate> = statement
-        .query_map(params![PLAYING, PROMPT_COUNT as i64], |row| row.get::<_, String>(0))?
-        .filter_map(|day| day.ok().and_then(|text| NaiveDate::parse_from_str(&text, "%Y-%m-%d").ok()))
-        .collect();
-    let mut day = if done.contains(&today) { today } else { today - Days::new(1) };
-    let mut count = 0;
-    while done.contains(&day) {
-        count += 1;
-        day = day - Days::new(1);
-    }
-    Ok(count)
+    let done: Vec<String> = statement.query_map(params![PLAYING, PROMPT_COUNT as i64], |row| row.get(0))?.collect::<Result<_, _>>()?;
+    Ok(day::streak(done, today))
 }
 
 pub fn state(connection: &Connection, today: NaiveDate, language: Language, settings: &RarefindSettings, now_ms: i64) -> Result<State, AppError> {

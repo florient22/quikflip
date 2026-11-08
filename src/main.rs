@@ -1,4 +1,5 @@
 mod api;
+mod atlas;
 mod claude;
 mod config;
 mod day;
@@ -8,6 +9,7 @@ mod generator;
 mod letterlock;
 mod rarefind;
 mod settings;
+mod snippet;
 mod text;
 
 use std::process::ExitCode;

@@ -21,6 +21,11 @@ FAMILIES = {
     "anton": "Anton",
     "bungee": "Bungee",
     "manrope": "Manrope:wght@500..800",
+    "unbounded": "Unbounded:wght@600..900",
+    "dm-sans": "DM+Sans:opsz,wght@9..40,500..700",
+    "titan-one": "Titan+One",
+    "permanent-marker": "Permanent+Marker",
+    "rubik": "Rubik:wght@500..800",
 }
 LATIN_BLOCK = re.compile(r"/\* latin \*/\s*@font-face\s*{(.*?)}", re.S)
 

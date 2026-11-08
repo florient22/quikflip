@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use chrono::{DateTime, Days, NaiveDate, TimeZone, Utc};
 use chrono_tz::Tz;
 
@@ -38,8 +40,26 @@ pub fn seconds_until_next_day(now: DateTime<Utc>, timezone: Tz) -> i64 {
     (next - now).num_seconds().max(0)
 }
 
+const DAY_FORMAT: &str = "%Y-%m-%d";
+
 pub fn format_day(day: NaiveDate) -> String {
-    day.format("%Y-%m-%d").to_string()
+    day.format(DAY_FORMAT).to_string()
+}
+
+pub fn parse_day(text: &str) -> Option<NaiveDate> {
+    NaiveDate::parse_from_str(text, DAY_FORMAT).ok()
+}
+
+/// Days in a row ending yesterday, or today once today counts too. `days` are the stored day keys that count.
+pub fn streak<I: IntoIterator<Item = String>>(days: I, today: NaiveDate) -> u32 {
+    let done: HashSet<NaiveDate> = days.into_iter().filter_map(|day| parse_day(&day)).collect();
+    let mut day = if done.contains(&today) { today } else { today - Days::new(1) };
+    let mut count = 0;
+    while done.contains(&day) {
+        count += 1;
+        day = day - Days::new(1);
+    }
+    count
 }
 
 #[cfg(test)]

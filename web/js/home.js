@@ -31,6 +31,15 @@ const STRINGS = {
     'rarefind.rules': 'Each prompt accepts lots of answers. Type one before the crane gets tired. Obvious answers build a plain floor; rare ones build tall, fancy floors.',
     'rarefind.new': '{total} floors to build', 'rarefind.progress': '{done} of {total} floors',
     'rarefind.solved': 'All {total} floors done', 'rarefind.waiting': 'Today’s floors are still being drawn',
+    'atlas.desc': 'Five geography clues. Pick a country; rarer picks rise higher and launch bigger moons.',
+    'atlas.rules': 'Each clue fits several countries. Spin the planet and pick one, or type its name. Common picks score a little, rare ones a lot. Three misses and the clue is lost. Every find comes with a fun fact.',
+    'atlas.new': '{total} clues waiting', 'atlas.progress': '{done} of {total} clues',
+    'atlas.solved': 'All {total} clues done', 'atlas.waiting': 'Today’s planet is still being mapped',
+    'snippet.desc': 'Name the song from a tiny clip. Every miss unlocks a longer one.',
+    'snippet.rules': 'Press play and name the song. Skip or guess wrong and the next clip is longer. You have six tries. Pick a mode and genre in the settings.',
+    'snippet.new': '{total} clips waiting', 'snippet.progress': '{done} of {total} clips used',
+    'snippet.solved': 'Named on clip {done} of {total}', 'snippet.failed': 'Not named this time',
+    'snippet.waiting': 'Today’s tape is still being recorded',
   },
   fr: {
     tagline: 'Quatre jeux quotidiens, un seul endroit',
@@ -56,6 +65,15 @@ const STRINGS = {
     'rarefind.rules': 'Chaque question accepte beaucoup de réponses. Tapes-en une avant que la grue fatigue. Une réponse évidente bâtit un étage simple ; une rare bâtit un étage haut et chic.',
     'rarefind.new': '{total} étages à bâtir', 'rarefind.progress': '{done} étages sur {total}',
     'rarefind.solved': 'Les {total} étages sont bâtis', 'rarefind.waiting': 'Les étages du jour sont encore en dessin',
+    'atlas.desc': 'Cinq indices de géo. Choisis un pays ; les choix rares montent plus haut et lancent de plus grosses lunes.',
+    'atlas.rules': 'Chaque indice convient à plusieurs pays. Fais tourner la planète et choisis-en un, ou tape son nom. Un choix courant rapporte peu, un choix rare beaucoup. Trois ratés et l’indice est perdu. Chaque trouvaille vient avec une anecdote.',
+    'atlas.new': '{total} indices à jouer', 'atlas.progress': '{done} indices sur {total}',
+    'atlas.solved': 'Les {total} indices sont joués', 'atlas.waiting': 'La planète du jour est encore en cartographie',
+    'snippet.desc': 'Trouve la chanson à partir d’un mini extrait. Chaque raté débloque un extrait plus long.',
+    'snippet.rules': 'Appuie sur lecture et trouve la chanson. Passe ou trompe-toi et l’extrait suivant est plus long. Tu as six essais. Choisis un mode et un genre dans les réglages.',
+    'snippet.new': '{total} extraits à écouter', 'snippet.progress': '{done} extraits sur {total}',
+    'snippet.solved': 'Trouvée à l’extrait {done} sur {total}', 'snippet.failed': 'Pas trouvée cette fois',
+    'snippet.waiting': 'La cassette du jour est encore en enregistrement',
   },
   nl: {
     tagline: 'Vier dagelijkse spellen, één plek',
@@ -81,12 +99,23 @@ const STRINGS = {
     'rarefind.rules': 'Elke vraag heeft veel goede antwoorden. Typ er een voor de kraan moe wordt. Een voor de hand liggend antwoord bouwt een gewone verdieping; een zeldzaam antwoord een hoge, chique.',
     'rarefind.new': '{total} verdiepingen te bouwen', 'rarefind.progress': '{done} van {total} verdiepingen',
     'rarefind.solved': 'Alle {total} verdiepingen klaar', 'rarefind.waiting': 'De verdiepingen van vandaag worden nog getekend',
+    'atlas.desc': 'Vijf aardrijkskundige hints. Kies een land; zeldzame keuzes rijzen hoger en lanceren grotere manen.',
+    'atlas.rules': 'Elke hint past bij meerdere landen. Draai de planeet en kies er een, of typ de naam. Een gewone keuze levert weinig op, een zeldzame veel. Drie missers en de hint is verloren. Bij elke vondst hoort een leuk weetje.',
+    'atlas.new': '{total} hints klaar', 'atlas.progress': '{done} van {total} hints',
+    'atlas.solved': 'Alle {total} hints gespeeld', 'atlas.waiting': 'De planeet van vandaag wordt nog in kaart gebracht',
+    'snippet.desc': 'Raad het nummer uit een piepklein fragment. Elke misser ontgrendelt een langer fragment.',
+    'snippet.rules': 'Druk op play en raad het nummer. Sla over of raad fout en het volgende fragment is langer. Je hebt zes pogingen. Kies een modus en genre in de instellingen.',
+    'snippet.new': '{total} fragmenten klaar', 'snippet.progress': '{done} van {total} fragmenten gebruikt',
+    'snippet.solved': 'Geraden bij fragment {done} van {total}', 'snippet.failed': 'Deze keer niet geraden',
+    'snippet.waiting': 'De cassette van vandaag wordt nog opgenomen',
   },
 };
 
 const ICONS = {
   letterlock: '<rect x="3" y="4" width="5" height="5" rx="1"/><rect x="9.5" y="4" width="5" height="5" rx="1"/><rect x="16" y="4" width="5" height="5" rx="1"/><rect x="3" y="11" width="5" height="5" rx="1"/><rect x="9.5" y="11" width="5" height="5" rx="1" fill="currentColor"/><rect x="16" y="11" width="5" height="5" rx="1"/><path d="M3 20h18"/>',
   rarefind: '<path d="M4 21h16M7 21V9h10v12M9 9V5h6v4M10 13h1M13 13h1M10 17h1M13 17h1M15 5h4M19 5v3"/>',
+  atlas: '<circle cx="11" cy="13" r="6.5"/><path d="M4.5 13h13M11 6.5c2 1.8 2 11.2 0 13M11 6.5c-2 1.8-2 11.2 0 13"/><circle cx="19.5" cy="4.5" r="1.8"/><path d="M16.5 3.2c2.6-1.6 5.2-.4 4.3 2.3"/>',
+  snippet: '<rect x="2.5" y="5" width="19" height="14" rx="2.5"/><circle cx="8.5" cy="11" r="2"/><circle cx="15.5" cy="11" r="2"/><path d="M10.5 11h3M7 19l1.5-3.5h7L17 19"/>',
   flame: '<path d="M12 21c-3.9 0-6.5-2.6-6.5-6.1 0-3.3 2.4-5.4 3.8-8.4.4 2 1.6 3.3 2.9 3.6.2-2.6 1.3-5 3.3-7.1.4 3.5 3.5 5.9 3.5 10.2 0 4.4-3 7.8-7 7.8z"/>',
   info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.2"/>',
   play: '<path d="M8 5.5v13l10-6.5z"/>',
@@ -103,10 +132,20 @@ const letterGrid = ({ marks, max }) => {
 const towerRow = ({ tiers }) => `<span class="tower-row" aria-hidden="true">${tiers.map(tier =>
   `<span class="${tier === null ? '' : tier === 0 ? 't-none' : `t-${tier}`}"></span>`).join('')}</span>`;
 
-// Games that exist so far. Each new game registers here with its page and result picture.
+// Atlas Hunt's result picture: one moon per clue, bigger and brighter for rarer finds (0 = lost, null = not played).
+const moonRow = ({ tiers }) => `<span class="moon-row" aria-hidden="true">${tiers.map(tier =>
+  `<span class="${tier === null ? '' : tier === 0 ? 'm-lost' : `m-${tier}`}"></span>`).join('')}</span>`;
+
+// Snippet's result picture: one strip per clip, marked skipped, wrong or right.
+const clipRow = ({ marks, max }) => `<span class="clip-row" aria-hidden="true">${Array.from({ length: max }, (_, index) =>
+  `<span class="${marks[index] ? `c-${marks[index]}` : ''}"></span>`).join('')}</span>`;
+
+// Every game, with its page and result picture.
 const GAMES = {
   letterlock: { name: 'Letterlock', href: 'games/letterlock/', picture: letterGrid },
   rarefind: { name: 'Rarefind', href: 'games/rarefind/', picture: towerRow },
+  atlas: { name: 'Atlas Hunt', href: 'games/atlas/', picture: moonRow },
+  snippet: { name: 'Snippet', href: 'games/snippet/', picture: clipRow },
 };
 
 const home = document.getElementById('home');
