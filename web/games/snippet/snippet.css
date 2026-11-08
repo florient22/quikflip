@@ -15,7 +15,14 @@
   --pencil: #ffcf3f;
   --right: #2f9e5b;
   --text: #3b2414;
-  --pop: 5px 5px 0 var(--outline);   /* hard cartoon shadow */
+  --shadow: var(--outline);          /* colour of every hard cartoon shadow */
+  --pop: 5px 5px 0 var(--shadow);
+  --deck-top: #e9e2d4;
+  --deck-bottom: #cfc6b4;
+  --deck-text: var(--outline);
+  --stripe-1: var(--orange);
+  --stripe-2: var(--brick);
+  --stripe-3: var(--brown);
 
   --font-display: "Titan One", "Arial Black", sans-serif;
   --font-marker: "Permanent Marker", "Comic Sans MS", cursive;
@@ -40,8 +47,12 @@
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    /* Late-night radio show on a pure black wall (OLED); the objects keep their colours. */
-    --wall: #000; --ray: #0b0604; --text: #fff1d6;
+    /* Late-night radio show on a pure black wall (OLED). Hard shadows turn deep brick so the objects lift off the
+       black, the deck goes dark and the stripes dim; the cassette and the J-card keep their colours. */
+    --wall: #000; --ray: #120905; --text: #fff1d6;
+    --shadow: #7a2c12;
+    --deck-top: #2e2622; --deck-bottom: #1c1613; --deck-text: #fff1d6;
+    --stripe-1: #7a3a16; --stripe-2: #5c2014; --stripe-3: #351307;
     --dialog-bg: #000; --dialog-text: #fff1d6; --dialog-border: 3px solid var(--orange); --dialog-shadow: 5px 5px 0 var(--brick);
     color-scheme: dark;
   }
@@ -55,7 +66,7 @@ body {
   margin: 0;
   /* Sunburst rays from the top, seventies stripes along the bottom. */
   background:
-    linear-gradient(transparent calc(100% - 4.5rem), var(--orange) calc(100% - 4.5rem) calc(100% - 3rem), var(--brick) calc(100% - 3rem) calc(100% - 1.5rem), var(--brown) calc(100% - 1.5rem)),
+    linear-gradient(transparent calc(100% - 4.5rem), var(--stripe-1) calc(100% - 4.5rem) calc(100% - 3rem), var(--stripe-2) calc(100% - 3rem) calc(100% - 1.5rem), var(--stripe-3) calc(100% - 1.5rem)),
     repeating-conic-gradient(from 0deg at 50% -10%, var(--wall) 0 6deg, var(--ray) 6deg 12deg),
     var(--wall);
   background-attachment: fixed;
@@ -70,7 +81,7 @@ body {
 }
 h1, h2, p { margin: 0; }
 button, input, select { font: inherit; color: inherit; }
-:focus-visible { outline: 3px solid var(--cream); outline-offset: 3px; box-shadow: 0 0 0 6px var(--outline); }
+:focus-visible { outline: 3px solid var(--cream); outline-offset: 3px; box-shadow: 0 0 0 6px var(--shadow); }
 .icon { width: 1.25em; height: 1.25em; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .page { width: var(--page-width); margin-inline: auto; display: grid; gap: var(--space-3); }
@@ -78,13 +89,13 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- Header ---------- */
 .top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); }
 .top-buttons { display: flex; gap: 0.5rem; }
-.chunky-btn { display: inline-grid; place-items: center; width: 2.8rem; height: 2.8rem; border: 3px solid var(--outline); border-radius: 50%; background: var(--cream); color: var(--outline); box-shadow: 3px 3px 0 var(--outline); cursor: pointer; transition: translate 90ms, box-shadow 90ms; }
-.chunky-btn:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--outline); }
+.chunky-btn { display: inline-grid; place-items: center; width: 2.8rem; height: 2.8rem; border: 3px solid var(--outline); border-radius: 50%; background: var(--cream); color: var(--outline); box-shadow: 3px 3px 0 var(--shadow); cursor: pointer; transition: translate 90ms, box-shadow 90ms; }
+.chunky-btn:active { translate: 2px 2px; box-shadow: 1px 1px 0 var(--shadow); }
 .masthead { display: grid; justify-items: center; text-align: center; }
 .title {
   font-family: var(--font-display); font-weight: 400; font-size: var(--fs-title); line-height: 1;
   color: var(--cream); -webkit-text-stroke: 3px var(--outline); paint-order: stroke fill;
-  text-shadow: 5px 5px 0 var(--outline);
+  text-shadow: 5px 5px 0 var(--shadow);
   rotate: -3deg;
 }
 .dateline { margin-top: 0.6rem; padding: 0.2em 0.8em; border: 2px solid var(--outline); border-radius: 999px; background: var(--cream); color: var(--outline); font-weight: 700; font-size: var(--fs-small); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -93,7 +104,7 @@ button, input, select { font: inherit; color: inherit; }
 .stage { display: grid; gap: var(--space-3); align-items: center; }
 @media (min-width: 52rem) { .stage { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
 .tape-wrap { position: relative; display: grid; justify-items: center; padding-top: 2.5rem; }
-.cassette { width: 100%; max-width: 34rem; height: auto; overflow: visible; filter: drop-shadow(6px 6px 0 var(--outline)); }
+.cassette { width: 100%; max-width: 34rem; height: auto; overflow: visible; filter: drop-shadow(6px 6px 0 var(--shadow)); }
 .o { stroke: var(--outline); stroke-width: 4; stroke-linejoin: round; }
 .o.thin { stroke-width: 2; }
 .o.mid { stroke-width: 3; }
@@ -157,7 +168,7 @@ button, input, select { font: inherit; color: inherit; }
   padding: 0.6rem 0.9rem;
   border: 3px solid var(--outline); border-radius: 1rem 1rem 1rem 0.2rem;
   background: var(--cream); color: var(--outline);
-  box-shadow: 3px 3px 0 var(--outline);
+  box-shadow: 3px 3px 0 var(--shadow);
   font-weight: 700; font-size: var(--fs-small);
   rotate: -2deg;
 }
@@ -187,7 +198,7 @@ button, input, select { font: inherit; color: inherit; }
 .jcard .is-skip, .jcard .is-pending { color: #8a8fb3; }
 .jcard .is-right span { padding: 0 0.3em; border: 3px solid var(--brick); border-radius: 50% 45% 55% 40%; }
 .reveal { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.4rem 0.8rem; align-items: center; margin-top: 0.8rem; padding-top: 0.8rem; border-top: 2px dashed rgb(29 42 107 / 0.35); font-family: var(--font-body); }
-.reveal img { grid-row: span 3; width: clamp(4.5rem, 6vw + 2rem, 6rem); aspect-ratio: 1; border: 3px solid var(--outline); border-radius: 0.4rem; box-shadow: 3px 3px 0 var(--outline); object-fit: cover; }
+.reveal img { grid-row: span 3; width: clamp(4.5rem, 6vw + 2rem, 6rem); aspect-ratio: 1; border: 3px solid var(--outline); border-radius: 0.4rem; box-shadow: 3px 3px 0 var(--shadow); object-fit: cover; }
 .reveal b { font-family: var(--font-display); font-weight: 400; font-size: 1.15rem; color: var(--brick); }
 .reveal span { font-weight: 700; }
 .reveal a { color: var(--marker); font-weight: 700; font-size: var(--fs-small); }
@@ -198,7 +209,7 @@ button, input, select { font: inherit; color: inherit; }
   display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: center; gap: var(--space-2);
   padding: var(--space-2);
   border: 3px solid var(--outline); border-radius: 1.2rem;
-  background: linear-gradient(#e9e2d4, #cfc6b4); color: var(--outline);
+  background: linear-gradient(var(--deck-top), var(--deck-bottom)); color: var(--deck-text);
   box-shadow: var(--pop);
 }
 @media (max-width: 40rem) { .deck { grid-template-columns: 1fr 1fr; } .keys { grid-column: 1 / -1; } }
@@ -218,10 +229,10 @@ button, input, select { font: inherit; color: inherit; }
   border: 3px solid var(--outline); border-radius: 0.5rem 0.5rem 0.8rem 0.8rem;
   background: var(--cream); color: var(--outline);
   font-weight: 800; font-size: var(--fs-small); letter-spacing: 0.1em; text-transform: uppercase;
-  box-shadow: 0 6px 0 var(--outline); cursor: pointer;
+  box-shadow: 0 6px 0 var(--shadow); cursor: pointer;
   transition: translate 80ms, box-shadow 80ms;
 }
-.piano-key:active, .piano-key.is-down { translate: 0 5px; box-shadow: 0 1px 0 var(--outline); }
+.piano-key:active, .piano-key.is-down { translate: 0 5px; box-shadow: 0 1px 0 var(--shadow); }
 .piano-key.play { background: var(--orange); }
 .piano-key:disabled { opacity: 0.55; cursor: default; }
 .clip-bar { grid-column: 1 / -1; display: flex; gap: 4px; align-items: center; }
@@ -243,9 +254,9 @@ button, input, select { font: inherit; color: inherit; }
 .tape-strip input::placeholder { color: rgb(29 42 107 / 0.45); }
 .tape-strip input:focus-visible { outline: none; box-shadow: none; }
 .guess:focus-within .tape-strip { box-shadow: inset 0 0 0 3px var(--marker); }
-.guess-btn { padding: 0.8em 1.3em; border: 3px solid var(--outline); border-radius: 0.8rem; background: var(--brick); color: var(--cream); font-family: var(--font-display); font-size: 1.05rem; box-shadow: 4px 4px 0 var(--outline); cursor: pointer; }
-.guess-btn:active { translate: 3px 3px; box-shadow: 1px 1px 0 var(--outline); }
-.suggest { position: absolute; left: 0; right: 7rem; top: calc(100% + 6px); z-index: 5; list-style: none; margin: 0; padding: 0.3rem; border: 3px solid var(--outline); border-radius: 0.8rem; background: var(--cream); color: var(--outline); box-shadow: 4px 4px 0 var(--outline); }
+.guess-btn { padding: 0.8em 1.3em; border: 3px solid var(--outline); border-radius: 0.8rem; background: var(--brick); color: var(--cream); font-family: var(--font-display); font-size: 1.05rem; box-shadow: 4px 4px 0 var(--shadow); cursor: pointer; }
+.guess-btn:active { translate: 3px 3px; box-shadow: 1px 1px 0 var(--shadow); }
+.suggest { position: absolute; left: 0; right: 7rem; top: calc(100% + 6px); z-index: 5; list-style: none; margin: 0; padding: 0.3rem; border: 3px solid var(--outline); border-radius: 0.8rem; background: var(--cream); color: var(--outline); box-shadow: 4px 4px 0 var(--shadow); }
 .suggest button { display: block; width: 100%; padding: 0.5em 0.7em; border: 0; border-radius: 0.5rem; background: none; text-align: left; font-weight: 700; cursor: pointer; }
 .suggest button:hover, .suggest button:focus-visible { background: #f6dfb4; box-shadow: none; outline: none; }
 .suggest small { font-weight: 500; opacity: 0.7; }

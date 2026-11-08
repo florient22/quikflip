@@ -30,23 +30,45 @@ Settings come from environment variables (all optional):
 
 ## Put it on TrueNAS SCALE
 
-Needs TrueNAS SCALE 24.10 or newer (apps run on Docker) and Podman on your laptop (`sudo dnf install podman` on Fedora; Podman Desktop on Windows).
+The code lives in a private GitHub repository (`florient22/quikflip`). Pushing a version tag makes GitHub Actions build the image and publish it, privately, as `ghcr.io/florient22/quikflip`; the NAS pulls it from there. Needs TrueNAS SCALE 24.10 or newer (apps run on Docker).
 
-1. Build the image and save it to a file:
+### Publish a version
+
+1. Set the new version in `Cargo.toml` and in both `image:` lines of `compose.yaml`, then commit.
+2. Tag and push:
    ```sh
-   podman build -t localhost/quikflip:0.3.1 .
-   podman save -o quikflip-0.3.1.tar localhost/quikflip:0.3.1
+   git tag v0.3.2
+   git push && git push --tags
    ```
-2. Copy `quikflip-0.3.1.tar` to the NAS (an SMB share works) and load it in the TrueNAS shell (System > Shell):
+3. Watch the build under the repository's Actions tab (about 10 minutes the first time, a few minutes after that). It fails on purpose if the tag and the `Cargo.toml` version differ. Private repositories get a monthly allowance of free Actions minutes, which is plenty for this.
+
+### First install on the NAS
+
+1. On GitHub: Settings > Developer settings > Personal access tokens > Tokens (classic) > Generate new token, with only the `read:packages` scope. This lets the NAS download the private image; treat it like a password.
+2. Sign the NAS in to the registry. In recent TrueNAS versions: Apps > Configuration > the Docker registry sign-in option, with registry `ghcr.io`, user `florient22` and the token as password. If your version has no such option, use System > Shell instead:
    ```sh
-   sudo docker load -i /mnt/tank/path/to/quikflip-0.3.1.tar
+   sudo docker login ghcr.io -u florient22
    ```
+   and paste the token when asked.
 3. Create a dataset for the data, for example `tank/apps/quikflip`, with the "Apps" preset so user 568 owns it.
 4. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.
-5. Apps > Discover Apps > the three-dot menu > Install via YAML. Paste `compose.yaml` after changing `/mnt/tank/apps/quikflip` (twice) to your dataset and pasting the token into `CLAUDE_CODE_OAUTH_TOKEN`.
+5. Apps > Discover Apps > the three-dot menu > Install via YAML. Paste `compose.yaml` after changing `/mnt/tank/apps/quikflip` (twice) to your dataset and pasting the Claude token into `CLAUDE_CODE_OAUTH_TOKEN`.
 6. Open `http://<nas-address>:8080`. Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language (the very first run also writes a few hundred Atlas fun facts). The generator's log is under the app's `quikflip-generator` container.
 
-To update: build with a new version tag, load it, change the tag in the app's YAML. The database migrates itself on start; take a TrueNAS snapshot of the dataset first.
+### Update
+
+Publish a new version (above), then edit the app's YAML in TrueNAS and change the tag in both `image:` lines; TrueNAS pulls the new image and restarts the app. The database migrates itself on start; take a TrueNAS snapshot of the dataset first.
+
+### Without GitHub
+
+To build on your own machine instead (Podman: `sudo dnf install podman` on Fedora, Podman Desktop on Windows):
+
+```sh
+podman build -t ghcr.io/florient22/quikflip:0.3.2 .
+podman save -o quikflip-0.3.2.tar ghcr.io/florient22/quikflip:0.3.2
+```
+
+Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.3.2.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
 
 ## Word lists, country data, fonts and libraries
 

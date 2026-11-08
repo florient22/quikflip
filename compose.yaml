@@ -1,9 +1,9 @@
 # TrueNAS SCALE: Apps > Discover Apps > Custom App (Install via YAML).
-# Before installing: change the dataset path (twice) and paste your token from `claude setup-token`.
+# Before installing: sign the NAS in to ghcr.io (see README.md), change the dataset path (twice) and paste your
+# token from `claude setup-token`. To update, change the version in both image lines.
 services:
   quikflip:
-    image: localhost/quikflip:0.3.1
-    pull_policy: never          # the image is loaded onto the NAS by hand; see README.md
+    image: ghcr.io/florient22/quikflip:0.3.2
     container_name: quikflip
     restart: unless-stopped
     user: "568:568"
@@ -16,8 +16,7 @@ services:
 
   # Makes puzzles ahead of time (Claude for Rarefind and Atlas Hunt, Deezer for Snippet) and judges contested answers; checks every hour.
   quikflip-generator:
-    image: localhost/quikflip:0.3.1
-    pull_policy: never
+    image: ghcr.io/florient22/quikflip:0.3.2
     container_name: quikflip-generator
     restart: unless-stopped
     user: "568:568"

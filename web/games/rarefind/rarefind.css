@@ -4,6 +4,10 @@
   --ground: #3d3a4f;
   --ground-top: #57536e;
   --ink: #1f1b2e;
+  --line: var(--ink);          /* outlines and hard shadows of the scenery and buttons */
+  --lobby: var(--ink);
+  --cloud: rgb(255 255 255 / 0.75);
+  --moon-opacity: 0;
   --hud: rgb(255 255 255 / 0.86);
   --hud-text: #1f1b2e;
   --hud-muted: #5f5a75;
@@ -46,7 +50,9 @@
   :root {
     /* Pure black ground and panels for OLED screens; the night sky fades to black as the tower rises. */
     --ground: #000; --ground-top: #17151f; --hud: rgb(0 0 0 / 0.82); --hud-text: #f3f0ff; --hud-muted: #a7a2c2;
-    --landmark: rgb(255 255 255 / 0.08); --window: #ffd77a; --dust: #6d6787;
+    --landmark: rgb(176 166 236 / 0.15); --window: #ffd77a; --dust: #6d6787;
+    /* At night dark outlines vanish, so the line-art turns soft lavender; clouds dim and a moon comes out. */
+    --line: #7d72b8; --lobby: #2b2545; --cloud: rgb(150 140 210 / 0.16); --moon-opacity: 1; --ground-top: #262040;
     --dialog-bg: #000; --dialog-text: #f3f0ff; --dialog-border: 3px solid #3a3550; --dialog-shadow: 6px 6px 0 #3a3550;
     color-scheme: dark;
   }
@@ -65,6 +71,8 @@ button, input { font: inherit; color: inherit; }
 
 .viewport { position: relative; height: 100%; min-height: 34rem; overflow: hidden; background: var(--sky-bottom, #fff3d6); }
 .sky { position: absolute; inset: 0; background: linear-gradient(var(--sky-top, #8fd3ff), var(--sky-bottom, #fff3d6)); transition: background 1200ms ease; }
+/* A crescent moon (dark mode only): a disc whose lit edge is an inset shadow. */
+.sky::after { content: ""; position: absolute; right: clamp(4rem, 14vw, 12rem); top: clamp(8rem, 22vh, 12rem); width: clamp(2.6rem, 3vw + 1.6rem, 4rem); aspect-ratio: 1; border-radius: 50%; box-shadow: inset -0.9rem 0.45rem 0 0 #f6eecd; filter: drop-shadow(0 0 1.2rem rgb(246 238 205 / 0.45)); opacity: var(--moon-opacity); rotate: -20deg; }
 .stars { position: absolute; inset: 0; opacity: var(--star-opacity, 0); transition: opacity 1200ms ease;
   background:
     radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 28% 42%, #fff, transparent),
@@ -83,7 +91,7 @@ button, input { font: inherit; color: inherit; }
 .landmark.is-passed .landmark-shape { background: color-mix(in srgb, var(--landmark) 50%, var(--accent)); }
 .landmark-label { position: absolute; left: 50%; bottom: calc(100% + 6px); translate: -50% 0; white-space: nowrap; padding: 0.15em 0.55em; border-radius: 999px; background: var(--hud); color: var(--hud-text); font-size: 0.7rem; font-weight: 800; }
 .landmark.is-passed .landmark-label { background: var(--accent); color: #fff; }
-.cloud { position: absolute; bottom: var(--y); left: var(--x); width: var(--w); height: calc(var(--w) * 0.36); border-radius: 999px; background: rgb(255 255 255 / 0.75); filter: blur(1px); animation: drift var(--d) linear infinite alternate; }
+.cloud { position: absolute; bottom: var(--y); left: var(--x); width: var(--w); height: calc(var(--w) * 0.36); border-radius: 999px; background: var(--cloud); filter: blur(1px); animation: drift var(--d) linear infinite alternate; }
 .cloud::before, .cloud::after { content: ""; position: absolute; border-radius: 50%; background: inherit; }
 .cloud::before { width: 45%; height: 140%; left: 18%; bottom: 25%; }
 .cloud::after { width: 35%; height: 110%; left: 50%; bottom: 30%; }
@@ -92,9 +100,9 @@ button, input { font: inherit; color: inherit; }
 .tower { position: absolute; left: 56%; bottom: var(--ground-px); width: var(--tower-width); translate: -50% 0; display: flex; flex-direction: column-reverse; transform-origin: 50% 100%; }
 .tower.is-wobble { animation: wobble 900ms var(--ease-out); }
 @keyframes wobble { 20% { rotate: 1.4deg; } 45% { rotate: -1deg; } 70% { rotate: 0.5deg; } }
-.lobby { height: 26px; background: var(--ink); border-radius: 4px 4px 0 0; display: grid; place-items: center; }
+.lobby { height: 26px; background: var(--lobby); border-radius: 4px 4px 0 0; display: grid; place-items: center; }
 .lobby span { width: 30%; height: 70%; background: var(--window); border-radius: 3px 3px 0 0; }
-.floor { position: relative; height: var(--h); margin-inline: var(--inset, 0); border: 3px solid var(--ink); border-bottom-width: 0; display: grid; place-items: center; overflow: hidden; }
+.floor { position: relative; height: var(--h); margin-inline: var(--inset, 0); border: 3px solid var(--line); border-bottom-width: 0; display: grid; place-items: center; overflow: hidden; }
 .floor::before { content: ""; position: absolute; inset: 6px; background: repeating-linear-gradient(90deg, var(--window) 0 12px, transparent 12px 20px); mask: repeating-linear-gradient(transparent 0 4px, #000 4px 14px); opacity: 0.85; }
 .floor.tier-1 { background: var(--tier-1); --inset: 6px; }
 .floor.tier-2 { background: var(--tier-2); --inset: 3px; }
@@ -128,9 +136,9 @@ button, input { font: inherit; color: inherit; }
   background: repeating-linear-gradient(45deg, transparent 0 6px, var(--accent) 6px 9px), repeating-linear-gradient(-45deg, transparent 0 6px, var(--accent) 6px 9px);
   border-inline: 3px solid var(--accent); }
 .crane-top { position: absolute; left: calc(56% + var(--tower-width) / 2 + 22px); bottom: calc(var(--ground-px) + var(--tower-px) + 150px); transition: bottom 1100ms var(--ease-out); }
-.jib { position: absolute; right: 0; bottom: 0; width: calc(var(--tower-width) / 2 + 70px); height: 12px; background: var(--accent); border: 3px solid var(--ink); border-radius: 3px; }
-.counter-jib { position: absolute; left: 0; bottom: 0; width: 44px; height: 12px; background: var(--accent); border: 3px solid var(--ink); }
-.cab { position: absolute; left: -28px; bottom: 12px; width: 56px; height: 46px; border: 3px solid var(--ink); border-radius: 10px 10px 4px 4px; background: #ffd23f; display: grid; grid-template-columns: 1fr 1fr; align-content: center; justify-items: center; padding: 6px 6px 0; }
+.jib { position: absolute; right: 0; bottom: 0; width: calc(var(--tower-width) / 2 + 70px); height: 12px; background: var(--accent); border: 3px solid var(--line); border-radius: 3px; }
+.counter-jib { position: absolute; left: 0; bottom: 0; width: 44px; height: 12px; background: var(--accent); border: 3px solid var(--line); }
+.cab { position: absolute; left: -28px; bottom: 12px; width: 56px; height: 46px; border: 3px solid var(--line); border-radius: 10px 10px 4px 4px; background: #ffd23f; display: grid; grid-template-columns: 1fr 1fr; align-content: center; justify-items: center; padding: 6px 6px 0; }
 .eye { position: relative; width: 16px; height: 16px; border-radius: 50%; background: #fff; border: 2px solid var(--ink); overflow: hidden; }
 .eye::after { content: ""; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); translate: calc(-50% + var(--look-x, -2px)) calc(-50% + var(--look-y, 2px)); transition: translate 300ms var(--ease-out); }
 .eye::before { content: ""; position: absolute; inset: 0; background: #ffd23f; translate: 0 var(--lid, -100%); transition: translate 250ms var(--ease-out); z-index: 1; }
@@ -146,11 +154,11 @@ button, input { font: inherit; color: inherit; }
 @keyframes jitter { 50% { translate: 2px 0; } }
 .hook { position: absolute; left: calc(-1 * (var(--tower-width) / 2 + 36px)); bottom: 0; width: 0; transform-origin: 0 0; animation: swing 2.6s ease-in-out infinite; }
 @keyframes swing { 0%, 100% { rotate: 3deg; } 50% { rotate: -3deg; } }
-.rope { position: absolute; left: -1px; top: 0; width: 2px; height: 70px; background: var(--ink); }
+.rope { position: absolute; left: -1px; top: 0; width: 2px; height: 70px; background: var(--line); }
 .crate {
   position: absolute; left: calc(var(--tower-width) * -0.42); top: 70px; width: calc(var(--tower-width) * 0.84); height: 38px;
   display: grid; place-items: center;
-  border: 3px solid var(--ink); border-radius: 4px;
+  border: 3px solid var(--line); border-radius: 4px;
   background: repeating-linear-gradient(45deg, var(--crate) 0 8px, color-mix(in srgb, var(--crate) 80%, black) 8px 16px);
   font-family: var(--font-sign); color: #fff; font-size: 1.1rem;
   transition: opacity 200ms;
@@ -183,7 +191,7 @@ button, input { font: inherit; color: inherit; }
   .prompt-card { grid-column: 1 / -1; grid-row: 2; }
   .hud-right { grid-column: 2; grid-row: 1; justify-self: end; }
 }
-.banner { position: absolute; left: 50%; top: 34%; z-index: 6; translate: -50% 0; padding: 0.5em 1.1em; border: 3px solid var(--ink); border-radius: 0.8rem; background: #ffd23f; color: var(--ink); font-family: var(--font-display); font-size: clamp(1.3rem, 3vw + 0.8rem, 2.4rem); white-space: nowrap; box-shadow: 6px 6px 0 var(--ink); opacity: 0; pointer-events: none; }
+.banner { position: absolute; left: 50%; top: 34%; z-index: 6; translate: -50% 0; padding: 0.5em 1.1em; border: 3px solid var(--line); border-radius: 0.8rem; background: #ffd23f; color: var(--ink); font-family: var(--font-display); font-size: clamp(1.3rem, 3vw + 0.8rem, 2.4rem); white-space: nowrap; box-shadow: 6px 6px 0 var(--line); opacity: 0; pointer-events: none; }
 .banner.is-on { animation: banner 2200ms var(--ease-snap) forwards; }
 @keyframes banner { 0% { opacity: 0; scale: 0.4; rotate: -8deg; } 15% { opacity: 1; scale: 1; rotate: -3deg; } 80% { opacity: 1; } 100% { opacity: 0; translate: -50% -30px; } }
 .points { position: absolute; left: 56%; top: 46%; z-index: 6; font-family: var(--font-display); font-size: clamp(1.8rem, 3vw + 1rem, 3rem); color: #fff; -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; opacity: 0; pointer-events: none; }
@@ -194,10 +202,10 @@ button, input { font: inherit; color: inherit; }
 .speech { display: flex; align-items: center; gap: 0.55rem; max-width: 34rem; padding: 0.55rem 0.9rem; border-radius: 1rem; background: var(--hud); color: var(--hud-text); backdrop-filter: blur(12px); font-weight: 700; font-size: var(--fs-small); }
 .speech.is-new { animation: pop 380ms var(--ease-snap); }
 @keyframes pop { from { scale: 0.9; } }
-.speech-cab { flex-shrink: 0; width: 1.8rem; height: 1.5rem; border: 2px solid var(--ink); border-radius: 6px 6px 2px 2px; background: #ffd23f; }
-.start-btn, .build-btn { display: inline-flex; align-items: center; gap: 0.4em; border: 3px solid var(--ink); border-radius: 0.8rem; background: var(--accent); color: #fff; font-family: var(--font-display); letter-spacing: 0.04em; box-shadow: 0 4px 0 var(--ink); cursor: pointer; text-transform: uppercase; }
+.speech-cab { flex-shrink: 0; width: 1.8rem; height: 1.5rem; border: 2px solid var(--line); border-radius: 6px 6px 2px 2px; background: #ffd23f; }
+.start-btn, .build-btn { display: inline-flex; align-items: center; gap: 0.4em; border: 3px solid var(--line); border-radius: 0.8rem; background: var(--accent); color: #fff; font-family: var(--font-display); letter-spacing: 0.04em; box-shadow: 0 4px 0 var(--line); cursor: pointer; text-transform: uppercase; }
 .start-btn { padding: 0.8em 1.6em; font-size: 1.1rem; }
-.start-btn:active, .build-btn:active { translate: 0 3px; box-shadow: 0 1px 0 var(--ink); }
+.start-btn:active, .build-btn:active { translate: 0 3px; box-shadow: 0 1px 0 var(--line); }
 .build-bar { display: flex; gap: 0.5rem; width: min(100%, 34rem); padding: 0.4rem; border-radius: 1.1rem; background: var(--hud); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgb(0 0 0 / 0.2); }
 .build-bar input { flex: 1; min-width: 0; padding: 0.75em 0.9em; border: 0; border-radius: 0.8rem; background: transparent; color: var(--hud-text); font-size: 1.05rem; font-weight: 700; }
 .build-bar input:focus-visible { outline: none; }
@@ -212,14 +220,14 @@ button, input { font: inherit; color: inherit; }
   padding: var(--space-2) max(16px, env(safe-area-inset-right, 0px)) max(var(--space-2), env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
   background: linear-gradient(transparent, rgb(0 0 0 / 0.35) 2rem);
 }
-.summary-card { width: min(100%, 38rem); padding: var(--space-2); border: 3px solid var(--ink); border-radius: 1rem; background: var(--dialog-bg); color: var(--dialog-text); box-shadow: 6px 6px 0 var(--ink); }
+.summary-card { width: min(100%, 38rem); padding: var(--space-2); border: 3px solid var(--line); border-radius: 1rem; background: var(--dialog-bg); color: var(--dialog-text); box-shadow: 6px 6px 0 var(--line); }
 .summary-card h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.3rem, 2vw + 0.8rem, 2rem); text-transform: uppercase; }
 .summary-stats { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-block: 0.5rem 0.8rem; font-weight: 800; }
 .summary-stats strong { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; }
 .floors { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 .floors li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.6rem; align-items: start; padding-bottom: 0.5rem; border-bottom: 1px dashed color-mix(in srgb, currentColor 25%, transparent); }
 .floors li:last-child { border-bottom: 0; }
-.floor-chip { width: 1.4rem; height: 1.4rem; border-radius: 0.3rem; border: 2px solid var(--ink); background: var(--c, transparent); }
+.floor-chip { width: 1.4rem; height: 1.4rem; border-radius: 0.3rem; border: 2px solid var(--line); background: var(--c, transparent); }
 .floors .chip-none { background: repeating-linear-gradient(45deg, transparent 0 3px, color-mix(in srgb, currentColor 30%, transparent) 3px 5px); }
 .floor-text { display: grid; gap: 0.15rem; font-size: var(--fs-small); min-width: 0; }
 .floor-text b { font-size: var(--fs-body); }
@@ -227,7 +235,7 @@ button, input { font: inherit; color: inherit; }
 .floor-points { font-family: var(--font-display); }
 .contest-btn { justify-self: start; padding: 0.2em 0.7em; border: 2px solid currentColor; border-radius: 999px; background: transparent; font-size: var(--fs-small); font-weight: 800; cursor: pointer; }
 .summary-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.8rem; margin-top: 0.8rem; font-weight: 700; }
-.summary-foot a { padding: 0.5em 1.1em; border: 3px solid var(--ink); border-radius: 0.8rem; background: var(--accent); color: #fff; font-family: var(--font-display); text-decoration: none; box-shadow: 0 3px 0 var(--ink); }
+.summary-foot a { padding: 0.5em 1.1em; border: 3px solid var(--line); border-radius: 0.8rem; background: var(--accent); color: #fff; font-family: var(--font-display); text-decoration: none; box-shadow: 0 3px 0 var(--line); }
 .countdown { font-variant-numeric: tabular-nums; }
 
 /* ---------- Settings ---------- */

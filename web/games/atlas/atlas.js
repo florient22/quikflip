@@ -51,6 +51,8 @@ const OUTSIDE_REGION = '#9aa4ab';
 const REGION_VIEW = { world: [15, 10], europe: [50, 15], africa: [3, 20], americas: [12, -78], asia: [32, 92], oceania: [-18, 150] };
 const REGIONS = Object.keys(REGION_VIEW);
 const MUTE_KEY = 'quikflip.atlas.muted';
+// Bloom and atmosphere strength per theme; the night sky needs less glow or the planet looks blown out.
+const GLOW = { dark: { bloom: 0.42, atmosphere: 0.55 }, light: { bloom: 0.35, atmosphere: 0.7 } };
 
 const STRINGS = {
   en: {
@@ -516,10 +518,11 @@ function applyTheme() {
   scene.background?.dispose();
   scene.background = paintBackground(dark);
   stars.visible = dark;
-  bloom.strength = dark ? 0.75 : 0.35;
+  const glow = dark ? GLOW.dark : GLOW.light;
+  bloom.strength = glow.bloom;
   hemi.color.set(dark ? '#9fc8ff' : '#e8f4ff');
   hemi.groundColor.set(dark ? '#2a1e3a' : '#b9a58f');
-  atmosphereUniforms.uStrength.value = dark ? 1 : 0.7;
+  atmosphereUniforms.uStrength.value = glow.atmosphere;
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
 applyTheme();
@@ -627,7 +630,8 @@ const tierMaterial = tier => new THREE.MeshStandardMaterial({
   color: TIERS[tier - 1].color, emissive: TIERS[tier - 1].color, emissiveIntensity: tier === 5 ? 0.55 : 0.18,
   roughness: 0.45, metalness: 0.05, flatShading: true, side: THREE.DoubleSide,
 });
-const hoverMaterial = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.25, transparent: true, opacity: 0.45, roughness: 0.2, side: THREE.DoubleSide, depthWrite: false });
+// Every pillar material uses flat shading: raised outlines have no normals, and without it they render black.
+const hoverMaterial = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#ffffff', emissiveIntensity: 0.35, transparent: true, opacity: 0.55, roughness: 0.4, flatShading: true, side: THREE.DoubleSide, depthWrite: false });
 const wrongMaterial = new THREE.MeshStandardMaterial({ color: WRONG_COLOR, emissive: WRONG_COLOR, emissiveIntensity: 0.5, flatShading: true, side: THREE.DoubleSide });
 
 /* ---------- Effects: shockwave rings, sparks ---------- */
