@@ -30,29 +30,23 @@ Settings come from environment variables (all optional):
 
 ## Put it on TrueNAS SCALE
 
-The code lives in a private GitHub repository (`florient22/quikflip`). Pushing a version tag makes GitHub Actions build the image and publish it, privately, as `ghcr.io/florient22/quikflip`; the NAS pulls it from there. Needs TrueNAS SCALE 24.10 or newer (apps run on Docker).
+The code lives in a public GitHub repository (https://github.com/florient22/quikflip). Pushing a version tag makes GitHub Actions build the image and publish it as the public package `ghcr.io/florient22/quikflip`; the NAS pulls it from there without signing in. Needs TrueNAS SCALE 24.10 or newer (apps run on Docker).
 
 ### Publish a version
 
 1. Set the new version in `Cargo.toml` and in both `image:` lines of `compose.yaml`, then commit.
 2. Tag and push:
    ```sh
-   git tag v0.3.4
+   git tag v0.4.0
    git push && git push --tags
    ```
-3. Watch the build under the repository's Actions tab (about 10 minutes the first time, a few minutes after that). It fails on purpose if the tag and the `Cargo.toml` version differ. Private repositories get a monthly allowance of free Actions minutes, which is plenty for this.
+3. Watch the build under the repository's Actions tab (about 10 minutes the first time, a few minutes after that). It fails on purpose if the tag and the `Cargo.toml` version differ. Actions minutes are free for public repositories.
 
 ### First install on the NAS
 
-1. On GitHub: Settings > Developer settings > Personal access tokens > Tokens (classic) > Generate new token, with only the `read:packages` scope. This lets the NAS download the private image; treat it like a password.
-2. Sign the NAS in to the registry. In recent TrueNAS versions: Apps > Configuration > the Docker registry sign-in option, with registry `ghcr.io`, user `florient22` and the token as password. If your version has no such option, use System > Shell instead:
-   ```sh
-   sudo docker login ghcr.io -u florient22
-   ```
-   and paste the token when asked.
-3. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.
-4. Apps > Discover Apps > the three-dot menu > Install via YAML. Paste `compose.yaml` after pasting the Claude token into `CLAUDE_CODE_OAUTH_TOKEN`. Docker creates the `quikflip-data` volume for the database by itself.
-5. Open `http://<nas-address>:8090` (the first number under `ports:` in `compose.yaml`; change it if another app already uses that port). Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language (the very first run also writes a few hundred Atlas fun facts). The generator's log is under the app's `quikflip-generator` container.
+1. On your laptop, run `claude setup-token` and copy the token it prints. It is tied to your Claude subscription; treat it like a password.
+2. Apps > Discover Apps > the three-dot menu > Install via YAML. Name the app `quikflip` (lowercase letters, digits and hyphens only). Paste `compose.yaml` after pasting the Claude token into `CLAUDE_CODE_OAUTH_TOKEN`. Docker creates the `quikflip-data` volume for the database by itself.
+3. Open `http://<nas-address>:8090` (the first number under `ports:` in `compose.yaml`; change it if another app already uses that port). Snippet's songs are ready within a minute; Rarefind and Atlas Hunt take a few minutes per language. The generator's log is under the app's `quikflip-generator` container.
 
 ### Web UI button and icon
 
@@ -101,11 +95,11 @@ Deleting the app can delete its volume too, and with it your history and streaks
 To build on your own machine instead (Podman: `sudo dnf install podman` on Fedora, Podman Desktop on Windows):
 
 ```sh
-podman build -t ghcr.io/florient22/quikflip:0.3.4 .
-podman save -o quikflip-0.3.4.tar ghcr.io/florient22/quikflip:0.3.4
+podman build -t ghcr.io/florient22/quikflip:0.4.0 .
+podman save -o quikflip-0.4.0.tar ghcr.io/florient22/quikflip:0.4.0
 ```
 
-Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.3.4.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
+Copy the file to the NAS, run `sudo docker load -i /mnt/tank/path/to/quikflip-0.4.0.tar` in System > Shell, and add `pull_policy: never` to both services so TrueNAS uses the loaded image instead of pulling.
 
 ## Word lists, country data, fonts and libraries
 

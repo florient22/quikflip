@@ -12,7 +12,7 @@ use crate::day::{Clock, format_day};
 use crate::db::Db;
 use crate::error::AppError;
 use crate::settings::{self, AllSettings, AppSettings, AtlasSettings, Language, LetterlockSettings, RarefindSettings, SnippetSettings};
-use crate::{atlas, letterlock, rarefind, snippet};
+use crate::{atlas, claude_pause, letterlock, rarefind, snippet};
 
 /// Clips and covers depend on how far the player is, so the browser must never reuse an old copy.
 const NO_STORE: &str = "no-store";
@@ -40,6 +40,7 @@ pub fn router(state: AppState, web_dir: &Path) -> Router {
         .route("/api/rarefind/answer", post(post_rarefind_answer))
         .route("/api/rarefind/expire", post(post_rarefind_expire))
         .route("/api/rarefind/contest", post(post_rarefind_contest))
+        .route("/api/rarefind/autofill", get(get_rarefind_autofill))
         .route("/api/settings/atlas", put(put_atlas_settings))
         .route("/api/atlas", get(get_atlas))
         .route("/api/atlas/pick", post(post_atlas_pick))
@@ -117,6 +118,9 @@ struct HomeSummary {
     seconds_to_reset: i64,
     language: Language,
     games: Vec<GameSummary>,
+    /// While Claude's usage limit holds new Rarefind and Atlas Hunt puzzles back: when it resets (Unix ms).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    claude_paused_until: Option<i64>,
 }
 
 async fn home(State(state): State<AppState>) -> Result<Json<HomeSummary>, AppError> {
@@ -136,6 +140,7 @@ async fn home(State(state): State<AppState>) -> Result<Json<HomeSummary>, AppErr
                 date: format_day(today),
                 seconds_to_reset,
                 language: app.language,
+                claude_paused_until: claude_pause::active_until(connection, now_ms())?,
                 games: vec![
                     GameSummary {
                         id: "letterlock",
@@ -280,6 +285,8 @@ struct RarefindResponse {
     seconds_to_reset: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<rarefind::AnswerResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    claude_paused_until: Option<i64>,
 }
 
 #[derive(Deserialize)]
@@ -309,8 +316,10 @@ where
         .call(move |connection| {
             let language = resolve_language(lang.as_deref(), &settings::app(connection)?)?;
             let game_settings = settings::rarefind(connection)?;
-            let (game, result) = action(connection, today, language, &game_settings, now_ms())?;
-            Ok(Json(RarefindResponse { state: game, seconds_to_reset, result }))
+            let now = now_ms();
+            let (game, result) = action(connection, today, language, &game_settings, now)?;
+            let claude_paused_until = claude_pause::active_until(connection, now)?;
+            Ok(Json(RarefindResponse { state: game, seconds_to_reset, result, claude_paused_until }))
         })
         .await
 }
@@ -351,6 +360,31 @@ async fn post_rarefind_contest(State(state): State<AppState>, Json(body): Json<T
     .await
 }
 
+#[derive(Deserialize)]
+struct AutofillQuery {
+    position: usize,
+    q: String,
+    lang: Option<String>,
+}
+
+#[derive(Serialize)]
+struct AutofillResponse {
+    completion: Option<String>,
+}
+
+async fn get_rarefind_autofill(State(state): State<AppState>, Query(query): Query<AutofillQuery>) -> Result<Json<AutofillResponse>, AppError> {
+    let today = state.clock.today();
+    state
+        .db
+        .call(move |connection| {
+            let language = resolve_language(query.lang.as_deref(), &settings::app(connection)?)?;
+            let game_settings = settings::rarefind(connection)?;
+            let completion = rarefind::autofill(connection, today, language, query.position, &query.q, &game_settings, now_ms())?;
+            Ok(Json(AutofillResponse { completion }))
+        })
+        .await
+}
+
 async fn put_atlas_settings(State(state): State<AppState>, Json(value): Json<AtlasSettings>) -> Result<Json<AllSettings>, AppError> {
     state
         .db
@@ -370,6 +404,8 @@ struct AtlasResponse {
     seconds_to_reset: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     result: Option<atlas::PickResult>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    claude_paused_until: Option<i64>,
 }
 
 async fn get_atlas(State(state): State<AppState>, Query(query): Query<LanguageQuery>) -> Result<Json<AtlasResponse>, AppError> {
@@ -380,7 +416,8 @@ async fn get_atlas(State(state): State<AppState>, Query(query): Query<LanguageQu
         .call(move |connection| {
             let language = resolve_language(query.lang.as_deref(), &settings::app(connection)?)?;
             let game = atlas::state(connection, today, language, &settings::atlas(connection)?)?;
-            Ok(Json(AtlasResponse { state: game, seconds_to_reset, result: None }))
+            let claude_paused_until = claude_pause::active_until(connection, now_ms())?;
+            Ok(Json(AtlasResponse { state: game, seconds_to_reset, result: None, claude_paused_until }))
         })
         .await
 }
@@ -401,7 +438,8 @@ async fn post_atlas_pick(State(state): State<AppState>, Json(body): Json<PickBod
             let language = resolve_language(body.lang.as_deref(), &settings::app(connection)?)?;
             let game_settings = settings::atlas(connection)?;
             let (game, result) = atlas::pick(connection, today, language, body.position, body.country.trim(), &game_settings)?;
-            Ok(Json(AtlasResponse { state: game, seconds_to_reset, result: Some(result) }))
+            let claude_paused_until = claude_pause::active_until(connection, now_ms())?;
+            Ok(Json(AtlasResponse { state: game, seconds_to_reset, result: Some(result), claude_paused_until }))
         })
         .await
 }

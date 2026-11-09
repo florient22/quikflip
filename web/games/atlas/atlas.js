@@ -52,13 +52,15 @@ const REGION_VIEW = { world: [15, 10], europe: [50, 15], africa: [3, 20], americ
 const REGIONS = Object.keys(REGION_VIEW);
 const MUTE_KEY = 'quikflip.atlas.muted';
 // Bloom and atmosphere strength per theme; the night sky needs less glow or the planet looks blown out.
+// While there is no puzzle yet, check this often whether it has arrived.
+const WAITING_POLL_MS = 60_000;
 const GLOW = { dark: { bloom: 0.42, atmosphere: 0.55 }, light: { bloom: 0.35, atmosphere: 0.7 } };
 
 const STRINGS = {
   en: {
     back: 'Back to QuikFlip', help: 'How to play', settings: 'Settings', close: 'Close', mute: 'Mute sound', unmute: 'Unmute sound',
     zoomIn: 'Zoom in', zoomOut: 'Zoom out', zoomReset: 'Reset view', points: 'Points',
-    rules: 'Five clues a day. Each clue fits several countries: spin the planet and click one, or type its name. Every country that fits scores, and rarer picks score more: they rise higher and launch bigger moons. A country can only be used once a day. Three misses and the clue is lost. Every find comes with a fun fact.',
+    rules: 'Five clues a day. Each clue fits several countries: spin the planet and click one, or type its name. Every country that fits scores, and rarer picks score more: they rise higher and launch bigger moons. A country can only be used once a day. Three misses and the clue is lost. Overseas territories count for the country they belong to. Every find comes with a fun fact.',
     clueOf: 'Clue {n} of {total}', fits: { one: '1 country fits', other: '{count} countries fit' },
     inputLabel: 'Type a country', placeholder: 'Click the planet, or type a country', raise: 'RAISE',
     controls: 'Drag to spin the planet. Scroll, pinch or use + and − to zoom.',
@@ -78,6 +80,8 @@ const STRINGS = {
     factLabel: 'Did you know?', nextClue: 'Next clue', seeResults: 'See results',
     found: 'Found: {name}', lostChip: 'Clue {n} lost', emptyChip: 'Clue {n}',
     waiting: 'Today’s planet is still being mapped. Check back soon.',
+    waitingLimit: 'The mapmakers hit Claude’s usage limit. Today’s clues come after {time}.',
+    resumesIn: 'Mapmakers back in {time}',
     doneTitle: 'Planet complete!', done: 'All five clues done. Come back tomorrow for a new planet.',
     total: 'Points', moons: 'Moons', yourPick: 'You: {name} · {tier} · +{points}', noPick: 'Lost after three misses',
     rarestList: 'Rarest: {list}', missed: 'Misses: {list}', nextIn: 'New clues in {time}', home: 'Back to QuikFlip', viewPlanet: 'View planet',
@@ -92,7 +96,7 @@ const STRINGS = {
   fr: {
     back: 'Retour à QuikFlip', help: 'Comment jouer', settings: 'Réglages', close: 'Fermer', mute: 'Couper le son', unmute: 'Remettre le son',
     zoomIn: 'Zoomer', zoomOut: 'Dézoomer', zoomReset: 'Recentrer', points: 'Points',
-    rules: 'Cinq indices par jour. Chaque indice convient à plusieurs pays : fais tourner la planète et clique sur l’un d’eux, ou tape son nom. Chaque pays qui convient rapporte des points, et les choix rares en rapportent plus : ils montent plus haut et lancent de plus grosses lunes. Un pays ne sert qu’une fois par jour. Trois ratés et l’indice est perdu. Chaque trouvaille vient avec une anecdote.',
+    rules: 'Cinq indices par jour. Chaque indice convient à plusieurs pays : fais tourner la planète et clique sur l’un d’eux, ou tape son nom. Chaque pays qui convient rapporte des points, et les choix rares en rapportent plus : ils montent plus haut et lancent de plus grosses lunes. Un pays ne sert qu’une fois par jour. Trois ratés et l’indice est perdu. Les territoires d’outre-mer comptent pour leur pays. Chaque trouvaille vient avec une anecdote.',
     clueOf: 'Indice {n} sur {total}', fits: { one: '1 pays convient', other: '{count} pays conviennent' },
     inputLabel: 'Tape un pays', placeholder: 'Clique sur la planète ou tape un pays', raise: 'LEVER',
     controls: 'Fais glisser pour tourner la planète. Molette, pincement ou + et − pour zoomer.',
@@ -112,6 +116,8 @@ const STRINGS = {
     factLabel: 'Le savais-tu ?', nextClue: 'Indice suivant', seeResults: 'Voir le résultat',
     found: 'Trouvé : {name}', lostChip: 'Indice {n} perdu', emptyChip: 'Indice {n}',
     waiting: 'La planète du jour est encore en cartographie. Reviens bientôt.',
+    waitingLimit: 'Les cartographes ont atteint la limite d’utilisation de Claude. Les indices du jour arrivent après {time}.',
+    resumesIn: 'Cartographes de retour dans {time}',
     doneTitle: 'Planète terminée !', done: 'Les cinq indices sont joués. Reviens demain pour une nouvelle planète.',
     total: 'Points', moons: 'Lunes', yourPick: 'Toi : {name} · {tier} · +{points}', noPick: 'Perdu après trois ratés',
     rarestList: 'Les plus rares : {list}', missed: 'Ratés : {list}', nextIn: 'Nouveaux indices dans {time}', home: 'Retour à QuikFlip', viewPlanet: 'Voir la planète',
@@ -126,7 +132,7 @@ const STRINGS = {
   nl: {
     back: 'Terug naar QuikFlip', help: 'Spelregels', settings: 'Instellingen', close: 'Sluiten', mute: 'Geluid uit', unmute: 'Geluid aan',
     zoomIn: 'Inzoomen', zoomOut: 'Uitzoomen', zoomReset: 'Beeld herstellen', points: 'Punten',
-    rules: 'Vijf hints per dag. Elke hint past bij meerdere landen: draai de planeet en klik er een aan, of typ de naam. Elk land dat past levert punten op, en zeldzame keuzes meer: ze rijzen hoger en lanceren grotere manen. Een land kan maar één keer per dag gebruikt worden. Drie missers en de hint is verloren. Bij elke vondst hoort een leuk weetje.',
+    rules: 'Vijf hints per dag. Elke hint past bij meerdere landen: draai de planeet en klik er een aan, of typ de naam. Elk land dat past levert punten op, en zeldzame keuzes meer: ze rijzen hoger en lanceren grotere manen. Een land kan maar één keer per dag gebruikt worden. Drie missers en de hint is verloren. Overzeese gebieden tellen voor het land waartoe ze horen. Bij elke vondst hoort een leuk weetje.',
     clueOf: 'Hint {n} van {total}', fits: { one: '1 land past', other: '{count} landen passen' },
     inputLabel: 'Typ een land', placeholder: 'Klik op de planeet of typ een land', raise: 'OMHOOG',
     controls: 'Sleep om de planeet te draaien. Scroll, knijp of gebruik + en − om te zoomen.',
@@ -146,6 +152,8 @@ const STRINGS = {
     factLabel: 'Wist je dat?', nextClue: 'Volgende hint', seeResults: 'Bekijk het resultaat',
     found: 'Gevonden: {name}', lostChip: 'Hint {n} verloren', emptyChip: 'Hint {n}',
     waiting: 'De planeet van vandaag wordt nog in kaart gebracht. Kom straks terug.',
+    waitingLimit: 'De cartografen zitten aan de gebruikslimiet van Claude. De hints van vandaag komen na {time}.',
+    resumesIn: 'Cartografen terug over {time}',
     doneTitle: 'Planeet klaar!', done: 'Alle vijf hints gespeeld. Kom morgen terug voor een nieuwe planeet.',
     total: 'Punten', moons: 'Manen', yourPick: 'Jij: {name} · {tier} · +{points}', noPick: 'Verloren na drie missers',
     rarestList: 'Zeldzaamste: {list}', missed: 'Missers: {list}', nextIn: 'Nieuwe hints over {time}', home: 'Terug naar QuikFlip', viewPlanet: 'Bekijk de planeet',
@@ -1230,7 +1238,21 @@ renderStatic();
 if (game.status === 'waiting') {
   meta.textContent = '';
   clueTitle.textContent = 'Atlas Hunt';
-  say(t('waiting'));
+  const resumesAt = game.claudePausedUntil;
+  if (resumesAt) {
+    say(t('waitingLimit', { time: new Date(resumesAt).toLocaleTimeString(lang, { hour: '2-digit', minute: '2-digit' }) }));
+    startCountdown((resumesAt - Date.now()) / 1000, left => { meta.textContent = t('resumesIn', { time: formatDuration(left) }); }, () => {});
+  } else {
+    say(t('waiting'));
+  }
+  // The planet is already drawn; only reload once the clues exist.
+  setInterval(async () => {
+    try {
+      if ((await api.atlas()).status !== 'waiting') location.reload();
+    } catch {
+      // Try again at the next check.
+    }
+  }, WAITING_POLL_MS);
 } else {
   game.clues.filter(clue => clue.outcome === 'found').forEach(clue => placeFind(clue.country, clue.tier, false));
   renderHud();

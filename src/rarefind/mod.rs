@@ -5,7 +5,7 @@ pub mod generate;
 use std::collections::HashMap;
 
 use chrono::NaiveDate;
-use rusqlite::{Connection, OptionalExtension, params};
+use rusqlite::{Connection, params};
 use serde::Serialize;
 
 use crate::day::{self, format_day};
@@ -23,6 +23,10 @@ const EXPIRE_TOLERANCE_MS: i64 = 750;
 const PLAYING: &str = "playing";
 const ANSWERED: &str = "answered";
 const TIMED_OUT: &str = "timed_out";
+/// Autofill starts once this many letters are typed...
+const AUTOFILL_MIN_CHARS: usize = 3;
+/// ...and they make up at least this share of the answer, so it completes words rather than guessing them.
+const AUTOFILL_MIN_SHARE: f64 = 0.5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -65,10 +69,17 @@ pub struct PromptView {
     pub answer: Option<String>,
     pub tier: Option<u8>,
     pub points: u32,
-    /// One of the rarest accepted answers, shown once the prompt is finished.
-    pub rarest: Option<String>,
+    /// Every accepted answer by tier, rarest first, once the prompt is finished.
+    pub answers: Vec<TierAnswers>,
     pub rejected: Vec<String>,
     pub contest: Option<ContestView>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TierAnswers {
+    pub tier: u8,
+    pub answers: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -190,14 +201,21 @@ fn contests(connection: &Connection, day: &str, language: Language) -> Result<Ha
     Ok(contests)
 }
 
-fn rarest_answer(connection: &Connection, day: &str, language: Language, position: usize) -> Result<Option<String>, AppError> {
-    Ok(connection
-        .query_row(
-            "SELECT display FROM rarefind_answers WHERE day = ?1 AND lang = ?2 AND position = ?3 ORDER BY tier DESC, display LIMIT 1",
-            params![day, language.code(), position as i64],
-            |row| row.get(0),
-        )
-        .optional()?)
+/// The accepted answers of one prompt grouped by tier, rarest first (aliases are not listed separately).
+fn answers_by_tier(connection: &Connection, day: &str, language: Language, position: usize) -> Result<Vec<TierAnswers>, AppError> {
+    let mut statement = connection.prepare(
+        "SELECT DISTINCT tier, display FROM rarefind_answers WHERE day = ?1 AND lang = ?2 AND position = ?3 ORDER BY tier DESC, display",
+    )?;
+    let rows = statement.query_map(params![day, language.code(), position as i64], |row| Ok((row.get::<_, i64>(0)? as u8, row.get::<_, String>(1)?)))?;
+    let mut groups: Vec<TierAnswers> = Vec::new();
+    for row in rows {
+        let (tier, answer) = row?;
+        match groups.last_mut() {
+            Some(group) if group.tier == tier => group.answers.push(answer),
+            _ => groups.push(TierAnswers { tier, answers: vec![answer] }),
+        }
+    }
+    Ok(groups)
 }
 
 /// Days in a row where all seven prompts were played (any language), counting today only once it is done.
@@ -243,7 +261,7 @@ pub fn state(connection: &Connection, today: NaiveDate, language: Language, sett
             answer: play.and_then(|play| play.answer.clone()),
             tier: play.and_then(|play| play.tier),
             points: play.map_or(0, |play| play.points),
-            rarest: if finished { rarest_answer(connection, &day, language, position)? } else { None },
+            answers: if finished { answers_by_tier(connection, &day, language, position)? } else { Vec::new() },
             rejected: if finished { attempts.remove(&position).unwrap_or_default() } else { Vec::new() },
             contest: contests.remove(&position),
         });
@@ -309,6 +327,48 @@ pub fn find_match(language: Language, typed: &str, answers: &[(String, String, u
         })
         .min_by_key(|(distance, tier, _)| (*distance, std::cmp::Reverse(*tier)))
         .map(|(_, tier, display)| (display.clone(), tier))
+}
+
+/// The accepted answer that what was typed is the start of, for completing it in the input. Only while the prompt
+/// is being played, only with autofill on, and only once enough of the answer is typed.
+pub fn autofill(
+    connection: &Connection,
+    today: NaiveDate,
+    language: Language,
+    position: usize,
+    typed: &str,
+    settings: &RarefindSettings,
+    now_ms: i64,
+) -> Result<Option<String>, AppError> {
+    if !settings.autofill {
+        return Ok(None);
+    }
+    let day = format_day(today);
+    let plays = load_plays(connection, &day, language)?;
+    let playing = plays.get(&position).is_some_and(|play| !play.finished() && play.deadline().is_none_or(|deadline| now_ms < deadline));
+    if !playing {
+        return Ok(None);
+    }
+    let answers: Vec<String> = answers_for(connection, &day, language, position)?.into_iter().map(|(_, display, _)| display).collect();
+    Ok(completion(typed, &answers))
+}
+
+/// The shortest answer that starts with what was typed (ignoring case and accents), if enough of it is typed and
+/// what was typed is not already an answer.
+pub fn completion(typed: &str, answers: &[String]) -> Option<String> {
+    let typed = text::fold(typed.trim_start());
+    let typed_chars = typed.chars().count();
+    if typed_chars < AUTOFILL_MIN_CHARS || answers.iter().any(|answer| text::fold(answer) == typed) {
+        return None;
+    }
+    answers
+        .iter()
+        .filter(|answer| {
+            let folded = text::fold(answer);
+            folded.starts_with(&typed) && typed_chars as f64 >= folded.chars().count() as f64 * AUTOFILL_MIN_SHARE
+        })
+        .min_by_key(|answer| (answer.chars().count(), (*answer).clone()))
+        .cloned()
 }
 
 fn answers_for(connection: &Connection, day: &str, language: Language, position: usize) -> Result<Vec<(String, String, u8)>, AppError> {
@@ -466,6 +526,31 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn autofill_completes_words_that_are_mostly_typed() {
+        let answers: Vec<String> = ["screwdriver", "screw", "crème brûlée", "rose", "rosemary", "helicopter"].map(String::from).to_vec();
+        assert_eq!(completion("screwd", &answers).as_deref(), Some("screwdriver"));
+        assert_eq!(completion("scr", &answers).as_deref(), Some("screw"));
+        assert_eq!(completion("Creme b", &answers).as_deref(), Some("crème brûlée"));
+        assert_eq!(completion("rose", &answers), None, "an answer that is already complete stays as typed");
+        assert_eq!(completion("ro", &answers), None, "too few letters");
+        assert_eq!(completion("rosem", &answers).as_deref(), Some("rosemary"));
+        assert_eq!(completion("heli", &answers), None, "less than half of helicopter");
+    }
+
+    #[test]
+    fn autofill_only_helps_while_a_prompt_is_played() {
+        let connection = connection_with_puzzle("2026-11-08");
+        let today = day("2026-11-08");
+        let settings = RarefindSettings::default();
+        assert_eq!(autofill(&connection, today, Language::En, 0, "hamm", &settings, NOW).unwrap(), None);
+        start(&connection, today, Language::En, 0, &settings, NOW).unwrap();
+        assert_eq!(autofill(&connection, today, Language::En, 0, "hamm", &settings, NOW).unwrap().as_deref(), Some("hammer"));
+        let off = RarefindSettings { autofill: false, ..settings };
+        assert_eq!(autofill(&connection, today, Language::En, 0, "hamm", &off, NOW).unwrap(), None);
+        assert_eq!(autofill(&connection, today, Language::En, 0, "hamm", &settings, NOW + 30_000).unwrap(), None, "time is up");
+    }
+
+    #[test]
     fn waiting_without_a_puzzle() {
         let mut connection = Connection::open_in_memory().unwrap();
         migrate(&mut connection).unwrap();
@@ -505,7 +590,8 @@ pub(crate) mod tests {
         let (state, result) = answer(&mut connection, today, Language::En, 0, "hammer", &settings, NOW + 27_000).unwrap();
         assert_eq!(result, AnswerResult::TimedOut);
         assert_eq!(state.prompts[0].outcome, Outcome::TimedOut);
-        assert_eq!(state.prompts[0].rarest.as_deref(), Some("plumb bob"));
+        assert_eq!(state.prompts[0].answers[0], TierAnswers { tier: 5, answers: vec!["plumb bob".into()] });
+        assert_eq!(state.prompts[0].answers.iter().map(|group| group.tier).collect::<Vec<_>>(), [5, 3, 1]);
     }
 
     #[test]

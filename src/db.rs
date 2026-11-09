@@ -226,6 +226,20 @@ const MIGRATIONS: &[&str] = &[
     DROP TABLE snippet_catalog;
     ALTER TABLE snippet_catalog_pools RENAME TO snippet_catalog;
     ",
+    // 6: when Claude's usage limit is reached, the generator waits until this time (Unix milliseconds); the web
+    // app shows it. Atlas Hunt's answers get a note on why each country fits its clue, shown when it is found.
+    // The clues got a new style too, so unplayed puzzles after today are made again.
+    r"
+    ALTER TABLE atlas_answers ADD COLUMN note TEXT;
+
+    CREATE TABLE claude_pause (
+        id       INTEGER PRIMARY KEY CHECK (id = 1),
+        until_ms INTEGER NOT NULL
+    ) STRICT;
+
+    DELETE FROM atlas_days WHERE day > date('now')
+        AND NOT EXISTS (SELECT 1 FROM atlas_plays p WHERE p.day = atlas_days.day AND p.lang = atlas_days.lang);
+    ",
 ];
 
 /// One SQLite connection shared by all requests. QuikFlip has a single player, so one connection is plenty.

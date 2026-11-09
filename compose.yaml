@@ -1,10 +1,10 @@
 # TrueNAS SCALE: Apps > Discover Apps > Custom App (Install via YAML).
-# Before installing: sign the NAS in to ghcr.io (see README.md) and paste your token from `claude setup-token`.
+# Before installing: paste your token from `claude setup-token` below. The image is public, so no registry sign-in.
 # To update, change the version in both image lines. The database lives in the quikflip-data volume, which Docker
 # creates on first start and keeps across updates.
 services:
   quikflip:
-    image: ghcr.io/florient22/quikflip:0.3.4
+    image: ghcr.io/florient22/quikflip:0.4.0
     container_name: quikflip
     restart: unless-stopped
     user: "568:568"
@@ -17,7 +17,7 @@ services:
 
   # Makes puzzles ahead of time (Claude for Rarefind and Atlas Hunt, Deezer for Snippet) and judges contested answers; checks every hour.
   quikflip-generator:
-    image: ghcr.io/florient22/quikflip:0.3.4
+    image: ghcr.io/florient22/quikflip:0.4.0
     container_name: quikflip-generator
     restart: unless-stopped
     user: "568:568"

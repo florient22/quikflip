@@ -14,6 +14,7 @@
   --landmark: rgb(31 27 46 / 0.22);
   --window: #cfe7ff;
   --accent: #ff5e3a;           /* crane orange */
+  --urgent: #ff2d55;           /* the timer's last seconds */
   --crate: #8a8698;
   --dust: #e9e2d0;
   /* Floors by rarity: concrete, brick, glass, gold, neon. */
@@ -32,6 +33,7 @@
   --fs-prompt: clamp(1.15rem, 2.2vw + 0.7rem, 2rem);
   --fs-height: clamp(1.8rem, 3.5vw + 1rem, 3.2rem);
   --space-2: clamp(0.7rem, 1.1vw + 0.4rem, 1.2rem);
+  --summary-peek: clamp(9rem, 30vh, 16rem);   /* how much of the tower shows above the end-of-day card */
   --tower-width: clamp(7.5rem, 14vw + 3rem, 12rem);
   --ease-snap: cubic-bezier(0.34, 1.56, 0.64, 1);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -165,7 +167,7 @@ button, input { font: inherit; color: inherit; }
 }
 /* The strip under the crate is the timer: how long the crane can still hold the block. */
 .crate::after { content: ""; position: absolute; left: 0; bottom: -9px; height: 5px; width: calc(var(--hold, 1) * 100%); border-radius: 999px; background: var(--accent); transition: background 300ms; }
-.is-urgent .crate::after { background: #ff2d55; }
+.is-urgent .crate::after { background: var(--urgent); }
 .crate.is-gone { opacity: 0; }
 .crate.is-falling { animation: crate-fall 900ms var(--ease-fall) forwards; }
 @keyframes crate-fall { 15% { rotate: -12deg; } to { translate: 0 120vh; rotate: 40deg; } }
@@ -206,7 +208,10 @@ button, input { font: inherit; color: inherit; }
 .start-btn, .build-btn { display: inline-flex; align-items: center; gap: 0.4em; border: 3px solid var(--line); border-radius: 0.8rem; background: var(--accent); color: #fff; font-family: var(--font-display); letter-spacing: 0.04em; box-shadow: 0 4px 0 var(--line); cursor: pointer; text-transform: uppercase; }
 .start-btn { padding: 0.8em 1.6em; font-size: 1.1rem; }
 .start-btn:active, .build-btn:active { translate: 0 3px; box-shadow: 0 1px 0 var(--line); }
-.build-bar { display: flex; gap: 0.5rem; width: min(100%, 34rem); padding: 0.4rem; border-radius: 1.1rem; background: var(--hud); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgb(0 0 0 / 0.2); }
+.build-bar { position: relative; overflow: hidden; display: flex; gap: 0.5rem; width: min(100%, 34rem); padding: 0.4rem; border-radius: 1.1rem; background: var(--hud); backdrop-filter: blur(12px); box-shadow: 0 10px 30px rgb(0 0 0 / 0.2); }
+/* The time left, shrinking along the bottom of the answer field. */
+.build-bar.has-timer::after { content: ""; position: absolute; left: 0; bottom: 0; height: 4px; width: calc(var(--hold, 1) * 100%); border-radius: 0 999px 999px 0; background: var(--accent); transition: background 300ms; }
+.is-urgent .build-bar::after { background: var(--urgent); }
 .build-bar input { flex: 1; min-width: 0; padding: 0.75em 0.9em; border: 0; border-radius: 0.8rem; background: transparent; color: var(--hud-text); font-size: 1.05rem; font-weight: 700; }
 .build-bar input:focus-visible { outline: none; }
 .build-btn { padding: 0 1.3em; font-size: 1.05rem; }
@@ -214,25 +219,32 @@ button, input { font: inherit; color: inherit; }
 .status { min-height: 1.2em; font-size: var(--fs-small); font-weight: 700; color: var(--hud-text); text-shadow: 0 1px 2px rgb(0 0 0 / 0.25); text-align: center; }
 
 /* ---------- End of the day ---------- */
+/* A full-height layer above the HUD: the card starts low so the tower shows, and scrolls up over everything
+   instead of disappearing under an edge. The empty space above it lets clicks through to the HUD. */
 .summary {
-  position: absolute; inset: auto 0 0; z-index: 7; max-height: 70%; overflow-y: auto;
-  display: grid; gap: 0.8rem; justify-items: center;
-  padding: var(--space-2) max(16px, env(safe-area-inset-right, 0px)) max(var(--space-2), env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
-  background: linear-gradient(transparent, rgb(0 0 0 / 0.35) 2rem);
+  position: absolute; inset: 0; z-index: 8; overflow-y: auto; overscroll-behavior: contain;
+  display: grid; align-content: start; justify-items: center;
+  padding: var(--summary-peek) max(16px, env(safe-area-inset-right, 0px)) max(var(--space-2), env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  pointer-events: none; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--hud-text) 35%, transparent) transparent;
 }
+.summary-card { pointer-events: auto; }
 .summary-card { width: min(100%, 38rem); padding: var(--space-2); border: 3px solid var(--line); border-radius: 1rem; background: var(--dialog-bg); color: var(--dialog-text); box-shadow: 6px 6px 0 var(--line); }
 .summary-card h2 { font-family: var(--font-display); font-weight: 400; font-size: clamp(1.3rem, 2vw + 0.8rem, 2rem); text-transform: uppercase; }
 .summary-stats { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-block: 0.5rem 0.8rem; font-weight: 800; }
 .summary-stats strong { font-family: var(--font-display); font-weight: 400; font-size: 1.4rem; }
 .floors { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
-.floors li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.6rem; align-items: start; padding-bottom: 0.5rem; border-bottom: 1px dashed color-mix(in srgb, currentColor 25%, transparent); }
-.floors li:last-child { border-bottom: 0; }
+.floors > li { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.6rem; align-items: start; padding-bottom: 0.5rem; border-bottom: 1px dashed color-mix(in srgb, currentColor 25%, transparent); }
+.floors > li:last-child { border-bottom: 0; }
 .floor-chip { width: 1.4rem; height: 1.4rem; border-radius: 0.3rem; border: 2px solid var(--line); background: var(--c, transparent); }
 .floors .chip-none { background: repeating-linear-gradient(45deg, transparent 0 3px, color-mix(in srgb, currentColor 30%, transparent) 3px 5px); }
 .floor-text { display: grid; gap: 0.15rem; font-size: var(--fs-small); min-width: 0; }
 .floor-text b { font-size: var(--fs-body); }
 .floor-text .muted { opacity: 0.7; }
 .floor-points { font-family: var(--font-display); }
+.all-answers summary { width: fit-content; font-weight: 800; cursor: pointer; }
+.tier-list { list-style: none; margin: 0.35rem 0 0.2rem; padding: 0; display: grid; gap: 0.3rem; }
+.tier-list li { display: grid; grid-template-columns: 0.9rem minmax(0, 1fr); gap: 0.5rem; align-items: start; }
+.tier-list .floor-chip { width: 0.9rem; height: 0.9rem; margin-top: 0.2em; border-width: 1.5px; }
 .contest-btn { justify-self: start; padding: 0.2em 0.7em; border: 2px solid currentColor; border-radius: 999px; background: transparent; font-size: var(--fs-small); font-weight: 800; cursor: pointer; }
 .summary-foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.8rem; margin-top: 0.8rem; font-weight: 700; }
 .summary-foot a { padding: 0.5em 1.1em; border: 3px solid var(--line); border-radius: 0.8rem; background: var(--accent); color: #fff; font-family: var(--font-display); text-decoration: none; box-shadow: 0 3px 0 var(--line); }

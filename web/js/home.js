@@ -5,6 +5,10 @@ import { formatDuration, startCountdown } from './countdown.js';
 
 const FLIP_DELAY_MS = 450;
 const FLIP_STAGGER_MS = 260;
+// While a game has no puzzle yet, check this often whether it has arrived.
+const WAITING_POLL_MS = 60_000;
+// Games whose puzzles Claude writes; Claude's usage limit can hold them back.
+const CLAUDE_GAMES = ['rarefind', 'atlas'];
 
 const STRINGS = {
   en: {
@@ -12,6 +16,7 @@ const STRINGS = {
     language: 'Language',
     played: { one: '{done} of {total} played', other: '{done} of {total} played' },
     newIn: 'New puzzles in',
+    claudeLimit: 'Claude’s usage limit is reached: the missing puzzles are made after {time}.',
     howTo: 'How to play',
     close: 'Close',
     streak: { one: '1-day streak', other: '{count}-day streak' },
@@ -46,6 +51,7 @@ const STRINGS = {
     language: 'Langue',
     played: { one: '{done} sur {total} joué', other: '{done} sur {total} joués' },
     newIn: 'Nouveaux défis dans',
+    claudeLimit: 'La limite d’utilisation de Claude est atteinte : les défis manquants seront créés après {time}.',
     howTo: 'Comment jouer',
     close: 'Fermer',
     streak: { one: '1 jour d’affilée', other: '{count} jours d’affilée' },
@@ -80,6 +86,7 @@ const STRINGS = {
     language: 'Taal',
     played: { one: '{done} van {total} gespeeld', other: '{done} van {total} gespeeld' },
     newIn: 'Nieuwe puzzels over',
+    claudeLimit: 'De gebruikslimiet van Claude is bereikt: de ontbrekende puzzels worden gemaakt na {time}.',
     howTo: 'Spelregels',
     close: 'Sluiten',
     streak: { one: '1 dag op rij', other: '{count} dagen op rij' },
@@ -152,6 +159,7 @@ const home = document.getElementById('home');
 let t = translator(STRINGS, 'en');
 let stopCountdown = () => {};
 let flipTimers = [];
+let waitingTimer = 0;
 
 const finished = status => status === 'solved' || status === 'failed';
 
@@ -210,6 +218,14 @@ function flipSolvedTiles() {
   flipTimers = tiles.map((element, index) => setTimeout(() => element.classList.add('is-flipped'), FLIP_DELAY_MS + index * FLIP_STAGGER_MS));
 }
 
+// Says when Claude's usage limit lifts, if it is what keeps a game waiting.
+function claudeLimitHtml(summary, games, lang) {
+  const held = games.some(game => game.status === 'waiting' && CLAUDE_GAMES.includes(game.id));
+  if (!summary.claudePausedUntil || !held) return '';
+  const time = new Intl.DateTimeFormat(LOCALES[lang], { hour: '2-digit', minute: '2-digit' }).format(new Date(summary.claudePausedUntil));
+  return `<p class="muted">${t('claudeLimit', { time })}</p>`;
+}
+
 function render(summary) {
   const lang = summary.language;
   t = translator(STRINGS, lang);
@@ -222,6 +238,7 @@ function render(summary) {
       <p class="headline">${formatDate(summary.date, lang)}</p>
       <div class="day-bar" aria-hidden="true">${games.map(game => `<span data-status="${game.status}"></span>`).join('')}</div>
       <p class="muted">${t('played', { done, total: games.length, count: done })} &middot; ${t('newIn')} <span class="countdown" data-countdown></span></p>
+      ${claudeLimitHtml(summary, games, lang)}
     </section>
     <ul class="tile-grid">${games.map(tile).join('')}</ul>`;
   home.setAttribute('aria-busy', 'false');
@@ -229,6 +246,8 @@ function render(summary) {
   stopCountdown();
   const countdown = home.querySelector('[data-countdown]');
   stopCountdown = startCountdown(summary.secondsToReset, left => { countdown.textContent = formatDuration(left); }, load);
+  clearTimeout(waitingTimer);
+  if (games.some(game => game.status === 'waiting')) waitingTimer = setTimeout(load, WAITING_POLL_MS);
 }
 
 function renderError() {

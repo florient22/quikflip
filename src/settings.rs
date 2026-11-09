@@ -87,10 +87,18 @@ impl RarefindTimer {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
 pub struct RarefindSettings {
     pub timer: RarefindTimer,
+    /// Complete an answer in the input once enough of a correct one is typed.
+    pub autofill: bool,
+}
+
+impl Default for RarefindSettings {
+    fn default() -> Self {
+        Self { timer: RarefindTimer::Normal, autofill: true }
+    }
 }
 
 /// Which part of the world Atlas Hunt's clues cover.
@@ -388,5 +396,7 @@ mod tests {
         connection.execute(r#"INSERT INTO settings VALUES ('snippet', 1, '{"mode":"genre","genre":"metal"}')"#, []).unwrap();
         let loaded = snippet(&connection).unwrap();
         assert_eq!((loaded.mode, loaded.genre, loaded.clips), (SnippetMode::Genre, SnippetGenre::Metal, ClipLength::Normal));
+        connection.execute(r#"INSERT INTO settings VALUES ('rarefind', 1, '{"timer":"off"}')"#, []).unwrap();
+        assert_eq!(rarefind(&connection).unwrap(), RarefindSettings { timer: RarefindTimer::Off, autofill: true });
     }
 }

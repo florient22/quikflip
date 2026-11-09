@@ -1,6 +1,7 @@
 mod api;
 mod atlas;
 mod claude;
+mod claude_pause;
 mod config;
 mod day;
 mod db;

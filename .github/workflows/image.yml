@@ -1,6 +1,6 @@
 # Builds the QuikFlip container image and publishes it to GitHub's container registry (ghcr.io).
-# Runs when a version tag like v0.3.2 is pushed, or by hand from the Actions tab. The image is private,
-# like the repository; the NAS pulls it with a token that has the read:packages scope (see README.md).
+# Runs when a version tag like v0.4.0 is pushed, or by hand from the Actions tab. The image is public, like the
+# repository, so the NAS pulls it without signing in (see README.md).
 name: Container image
 
 on:

@@ -1,5 +1,7 @@
 //! Writing Atlas Hunt with Claude. The code plans the day (data clues with computed answers, plus themes for clues
 //! from general knowledge) and checks every result; Claude words the clues, rates rarity and writes fun facts.
+//! Clues are everyday trivia with a surprising answer, in the spirit of Farflung: "German is an official language
+//! there" (Belgium!), "Penguins live there in the wild" (South Africa!).
 
 use std::collections::{HashMap, HashSet};
 
@@ -19,7 +21,9 @@ use crate::rarefind::generate::language_name;
 use crate::settings::{AtlasRegion, Language};
 use crate::text;
 
-const DATA_CLUES_PER_DAY: usize = 3;
+const DATA_CLUES_PER_DAY: usize = 2;
+/// Tier of a gem: a country that clearly fits but almost nobody thinks of. Every clue needs one.
+const GEM_TIER: u8 = 5;
 /// A data clue (for example "borders Germany") rests this long before it can come back.
 const COOLDOWN_DAYS: u64 = 60;
 const RECENT_DAYS: u64 = 90;
@@ -36,20 +40,23 @@ const NEW_FACTS_PER_COUNTRY: usize = 3;
 const FACT_BATCH: usize = 25;
 const MIN_FACT_CHARS: usize = 20;
 const MAX_FACT_CHARS: usize = 220;
+/// A note on why a country fits its clue; longer or empty notes are dropped (the fun-fact pool fills in).
+const MAX_NOTE_CHARS: usize = 180;
 const THEME_PREFIX: &str = "theme:";
 
 /// Themes for clues that need general knowledge. The least recently used theme goes first.
 pub const THEMES: &[&str] = &[
-    "flags (colours, symbols, shapes)",
-    "sport (Olympic hosts, World Cups, national sports)",
-    "food and drink",
-    "history (empires, independence, famous events)",
-    "nature (mountains, rivers, deserts, volcanoes, wildlife)",
-    "famous landmarks and wonders",
-    "culture (music, festivals, film, art, traditions)",
-    "inventions, famous companies and products",
-    "geography records and features (seas, coastlines, islands, the equator)",
-    "famous people (scientists, explorers, artists)",
+    "flags (a colour, symbol, animal or shape on the national flag)",
+    "wildlife (animals that live there in the wild)",
+    "rivers, lakes and mountain ranges (which ones flow through or cross it)",
+    "everyday life (which side of the road people drive on, the alphabet it writes in, its seasons)",
+    "the country's name (what it means, who or what it is named after, how it is spelled)",
+    "breeds and namesakes (cat, dog and horse breeds, foods or other things named after the country or its places)",
+    "food and drink (dishes, crops and drinks it is known for)",
+    "sport (Olympic and World Cup hosts, national sports, famous wins)",
+    "history (empires, colonies, independence, countries that no longer exist)",
+    "landmarks and natural wonders (famous buildings, UNESCO sites, waterfalls, deserts, volcanoes)",
+    "the map (islands, the equator and the tropics, seas and oceans it touches, enclaves)",
 ];
 
 enum Plan {
@@ -88,7 +95,7 @@ fn recent_clues(connection: &Connection, language: Language, day: NaiveDate) -> 
 fn plan(connection: &Connection, day: NaiveDate, language: Language, region: AtlasRegion) -> anyhow::Result<Vec<Plan>> {
     let used = recent_kinds(connection, language, day)?;
     let cooldown_start = format_day(day - Days::new(COOLDOWN_DAYS));
-    let mut candidates: Vec<DataClue> = clues::candidates(region, language)
+    let mut candidates: Vec<DataClue> = clues::candidates(region)
         .into_iter()
         .filter(|clue| used.get(&clue.kind).is_none_or(|last| *last < cooldown_start))
         .collect();
@@ -132,8 +139,12 @@ fn puzzle_schema() -> Value {
                     "number": { "type": "integer", "minimum": 1, "maximum": CLUE_COUNT },
                     "clue": { "type": "string" },
                     "countries": { "type": "array", "items": {
-                        "type": "object", "additionalProperties": false, "required": ["code", "tier"],
-                        "properties": { "code": { "type": "string" }, "tier": { "type": "integer", "minimum": 1, "maximum": 5 } }
+                        "type": "object", "additionalProperties": false, "required": ["code", "tier", "note"],
+                        "properties": {
+                            "code": { "type": "string" },
+                            "tier": { "type": "integer", "minimum": 1, "maximum": 5 },
+                            "note": { "type": "string" }
+                        }
                     } }
                 }
             }
@@ -143,13 +154,26 @@ fn puzzle_schema() -> Value {
 
 fn puzzle_prompt(language: Language, region: AtlasRegion, plans: &[Plan], recent: &[String], feedback: &[String]) -> String {
     let mut prompt = format!(
-        "You write today's Atlas Hunt, a geography game. The player gets {CLUE_COUNT} clues and picks ONE country per clue on a globe. \
-         Every country that fits scores, but rarer picks score more, so the fun is in finding a country few people would think of.\n\n\
-         Language: write every clue in {}. Keep each clue short (under {MAX_CLUE_CHARS} characters), clear and fun. \
-         Write it as a description of the country, for example \"Shares a border with Germany\".\n\
+        "You write today's Atlas Hunt, a geography trivia game. The player gets {CLUE_COUNT} clues and picks ONE country per \
+         clue on a globe. Every country that fits scores, but the countries people are least likely to think of score most. \
+         So every clue needs at least one gem: a country that clearly fits but almost nobody thinks of, usually through a \
+         lesser-known fact (German is an official language in Belgium; penguins live wild in South Africa; France borders \
+         Brazil through French Guiana).\n\n\
+         Language: write every clue in {}. Keep each clue short (under {MAX_CLUE_CHARS} characters), clear and fun.\n\
+         Style: everyday trivia a curious person can check, written as a description of the country, like \
+         \"German is an official language there\", \"People drive on the left\", \"Penguins live there in the wild\", \
+         \"The Mekong flows through it\", \"Its flag has a star on it\", \"Named after a person\", \"A cat breed is named after it\". \
+         Not school-test facts (\"Lies in Eastern Asia\", \"Is larger than 1,000,000 km2\", \"Its name starts with M\"), and \
+         nothing that needs an expert (birthplaces of scientists, treaty dates, statistics).\n\
+         Overseas territories count for the country they belong to (the United Kingdom has penguins through the Falklands).\n\
          Region: {}. Only countries in this region count.\n\n\
          Tier = how likely a typical player is to think of that country for that clue: 1 = the first ones most people name, \
-         2 = common, 3 = less common, 4 = rare, 5 = almost nobody thinks of it. Use the whole scale.\n\n",
+         2 = common, 3 = less common, 4 = rare, {GEM_TIER} = a gem almost nobody thinks of. Use the whole scale, and give \
+         every clue at least one tier {GEM_TIER} country.\n\n\
+         Note = what the player reads after finding that country: one short, fun sentence (under {MAX_NOTE_CHARS} characters) on \
+         why it fits this clue, with the surprising detail where there is one. For \"German is an official language there\", \
+         Belgium: \"A small German-speaking community lives in the east, around Eupen.\" Write notes in the clue's language, \
+         true and checkable, and never just repeat the clue.\n\n",
         language_name(language),
         region_label(region)
     );
@@ -210,6 +234,8 @@ struct GeneratedClue {
 struct GeneratedCountry {
     code: String,
     tier: u8,
+    #[serde(default)]
+    note: String,
 }
 
 #[derive(Debug)]
@@ -217,6 +243,8 @@ struct PuzzleClue {
     kind: String,
     clue: String,
     answers: Vec<Rated>,
+    /// Why a country fits, by country code; countries without a usable note get a fun fact instead.
+    notes: HashMap<String, String>,
 }
 
 /// A country code with its rarity tier.
@@ -255,6 +283,12 @@ fn validate(language: Language, region: AtlasRegion, plans: &[Plan], generated: 
             }
         }
         seen_keywords.push(keywords);
+        let notes: HashMap<String, String> = item
+            .countries
+            .iter()
+            .map(|country| (country.code.trim().to_uppercase(), country.note.trim().to_owned()))
+            .filter(|(_, note)| !note.is_empty() && note.chars().count() <= MAX_NOTE_CHARS)
+            .collect();
         let rated: HashMap<String, u8> =
             item.countries.into_iter().filter(|country| (1..=5).contains(&country.tier)).map(|country| (country.code.trim().to_uppercase(), country.tier)).collect();
         let answers: Vec<Rated> = match plan {
@@ -285,7 +319,11 @@ fn validate(language: Language, region: AtlasRegion, plans: &[Plan], generated: 
         if distinct_tiers(&answers) < needed_tiers {
             issues.push(format!("Clue {number}: spread the countries over at least {needed_tiers} different tiers."));
         }
-        puzzle.push(PuzzleClue { kind: plan.kind(), clue: clue_text, answers });
+        if !answers.iter().any(|(_, tier)| *tier == GEM_TIER) {
+            issues.push(format!("Clue {number} needs at least one gem: a fitting country almost nobody thinks of, rated tier {GEM_TIER}."));
+        }
+        let notes = notes.into_iter().filter(|(code, _)| answers.iter().any(|(answer, _)| answer == code)).collect();
+        puzzle.push(PuzzleClue { kind: plan.kind(), clue: clue_text, answers, notes });
     }
     if issues.is_empty() { Ok(puzzle) } else { Err(issues) }
 }
@@ -300,8 +338,8 @@ fn store(connection: &mut Connection, day: &str, language: Language, region: Atl
         )?;
         for (country, tier) in &clue.answers {
             transaction.execute(
-                "INSERT INTO atlas_answers (day, lang, position, country, tier) VALUES (?1, ?2, ?3, ?4, ?5)",
-                params![day, language.code(), position as i64, country, tier],
+                "INSERT INTO atlas_answers (day, lang, position, country, tier, note) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![day, language.code(), position as i64, country, tier, clue.notes.get(country)],
             )?;
         }
     }
@@ -366,10 +404,11 @@ fn facts_schema() -> Value {
     })
 }
 
-/// Countries that can be found from `from_day` on but have too few unseen facts in this language.
+/// Countries that can be found from `from_day` on without a note on their clue, and have too few unseen facts in
+/// this language. Answers with a note show the note, so they need no fun fact.
 fn countries_needing_facts(connection: &Connection, language: Language, from_day: &str) -> anyhow::Result<Vec<String>> {
     let mut statement = connection.prepare(
-        "SELECT a.country FROM (SELECT DISTINCT country FROM atlas_answers WHERE lang = ?1 AND day >= ?2) a
+        "SELECT a.country FROM (SELECT DISTINCT country FROM atlas_answers WHERE lang = ?1 AND day >= ?2 AND note IS NULL) a
          LEFT JOIN atlas_facts f ON f.lang = ?1 AND f.country = a.country AND f.shown_on IS NULL
          GROUP BY a.country HAVING COUNT(f.id) < ?3 ORDER BY a.country",
     )?;
@@ -437,7 +476,7 @@ mod tests {
     }
 
     fn rated(codes: &[(&str, u8)]) -> Vec<GeneratedCountry> {
-        codes.iter().map(|(code, tier)| GeneratedCountry { code: (*code).into(), tier: *tier }).collect()
+        codes.iter().map(|(code, tier)| GeneratedCountry { code: (*code).into(), tier: *tier, note: format!("Why {code} fits.") }).collect()
     }
 
     #[test]
@@ -445,8 +484,8 @@ mod tests {
         let plans = vec![data_plan("borders:LUX", &["BEL", "FRA", "DEU"]), Plan::Theme(THEMES[0])];
         let generated = Generated {
             clues: vec![
-                GeneratedClue { number: 1, clue: "Borders Luxembourg".into(), countries: rated(&[("BEL", 2), ("FRA", 1), ("DEU", 1), ("ESP", 5)]) },
-                GeneratedClue { number: 2, clue: "Its flag is red and white only".into(), countries: rated(&[("AUT", 2), ("POL", 1), ("DNK", 3), ("BRA", 4)]) },
+                GeneratedClue { number: 1, clue: "Borders Luxembourg".into(), countries: rated(&[("BEL", 5), ("FRA", 1), ("DEU", 1), ("ESP", 5)]) },
+                GeneratedClue { number: 2, clue: "Its flag is red and white only".into(), countries: rated(&[("AUT", 2), ("POL", 1), ("DNK", 5), ("BRA", 4)]) },
             ],
         };
         let issues = validate(Language::En, AtlasRegion::Europe, &plans, generated, &[]).unwrap_err();
@@ -459,11 +498,23 @@ mod tests {
     fn a_valid_puzzle_passes_and_unrated_data_countries_get_the_middle_tier() {
         let plans = vec![data_plan("landlocked", &["AUT", "CHE", "HUN", "SVK", "CZE"])];
         let generated = Generated {
-            clues: vec![GeneratedClue { number: 1, clue: "Has no coastline".into(), countries: rated(&[("AUT", 1), ("CHE", 1), ("HUN", 2), ("SVK", 4)]) }],
+            clues: vec![GeneratedClue { number: 1, clue: "Has no coastline".into(), countries: rated(&[("AUT", 1), ("CHE", 1), ("HUN", 2), ("SVK", 5)]) }],
         };
         // Data clues may reuse wording (their cooldown keeps them apart), so a recent look-alike is fine.
         let puzzle = validate(Language::En, AtlasRegion::Europe, &plans, generated, &["Has no coastline at all".into()]).unwrap();
         assert!(puzzle[0].answers.contains(&("CZE".to_owned(), DEFAULT_TIER)));
+        assert_eq!(puzzle[0].notes.get("SVK").map(String::as_str), Some("Why SVK fits."));
+        assert!(!puzzle[0].notes.contains_key("CZE"), "Claude wrote no note for an unrated country");
+    }
+
+    #[test]
+    fn every_clue_needs_a_gem() {
+        let plans = vec![data_plan("landlocked", &["AUT", "CHE", "HUN", "SVK"])];
+        let generated = Generated {
+            clues: vec![GeneratedClue { number: 1, clue: "Has no coastline".into(), countries: rated(&[("AUT", 1), ("CHE", 1), ("HUN", 2), ("SVK", 4)]) }],
+        };
+        let issues = validate(Language::En, AtlasRegion::Europe, &plans, generated, &[]).unwrap_err();
+        assert!(issues[0].contains("gem"), "{issues:?}");
     }
 
     #[test]
@@ -474,7 +525,7 @@ mod tests {
         for day in ["2026-11-08", "2026-11-09", "2026-11-10"] {
             connection.execute("INSERT INTO atlas_days VALUES (?1, 'en', 'world')", params![day]).unwrap();
             connection.execute("INSERT INTO atlas_clues VALUES (?1, 'en', 0, 'landlocked', 'No coast')", params![day]).unwrap();
-            connection.execute("INSERT INTO atlas_answers VALUES (?1, 'en', 0, 'AUT', 1)", params![day]).unwrap();
+            connection.execute("INSERT INTO atlas_answers (day, lang, position, country, tier) VALUES (?1, 'en', 0, 'AUT', 1)", params![day]).unwrap();
         }
         connection.execute("INSERT INTO atlas_plays (day, lang, position, outcome) VALUES ('2026-11-10', 'en', 0, 'playing')", []).unwrap();
         let today = crate::day::parse_day("2026-11-08").unwrap();

@@ -21,6 +21,10 @@ impl Clock {
     pub fn seconds_until_next_day(&self) -> i64 {
         seconds_until_next_day(Utc::now(), self.timezone)
     }
+
+    pub fn timezone(&self) -> Tz {
+        self.timezone
+    }
 }
 
 pub fn day_at(now: DateTime<Utc>, timezone: Tz) -> NaiveDate {

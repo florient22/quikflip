@@ -266,19 +266,23 @@ pub fn pick(
     if used.contains(code) {
         return Err(AppError::bad_request("already_tried", "You already tried that country today."));
     }
-    let tier: Option<u8> = connection
+    let answer: Option<(u8, Option<String>)> = connection
         .query_row(
-            "SELECT tier FROM atlas_answers WHERE day = ?1 AND lang = ?2 AND position = ?3 AND country = ?4",
+            "SELECT tier, note FROM atlas_answers WHERE day = ?1 AND lang = ?2 AND position = ?3 AND country = ?4",
             params![day, language.code(), position as i64, code],
-            |row| row.get::<_, i64>(0),
+            |row| Ok((row.get::<_, i64>(0)? as u8, row.get(1)?)),
         )
-        .optional()?
-        .map(|tier| tier as u8);
+        .optional()?;
     let transaction = connection.transaction()?;
-    let result = match tier {
-        Some(tier) => {
+    let result = match answer {
+        Some((tier, note)) => {
             let points = TIER_POINTS[usize::from(tier) - 1];
-            let fact = if settings.facts { take_fact(&transaction, &day, language, code)? } else { None };
+            // The note on why this country fits today's clue; older puzzles without one get a fun fact instead.
+            let fact = match note {
+                _ if !settings.facts => None,
+                Some(note) => Some(note),
+                None => take_fact(&transaction, &day, language, code)?,
+            };
             transaction.execute(
                 "INSERT INTO atlas_plays (day, lang, position, outcome, country, tier, points, fact) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
                  ON CONFLICT (day, lang, position) DO UPDATE SET outcome = excluded.outcome, country = excluded.country,
@@ -338,7 +342,14 @@ mod tests {
         for position in 0..CLUE_COUNT as i64 {
             connection.execute("INSERT INTO atlas_clues VALUES (?1, 'en', ?2, 'borders:DEU', 'Borders Germany')", params![TODAY, position]).unwrap();
             for (country, tier) in [("FRA", 1), ("BEL", 2), ("LUX", 5), ("CHE", 3)] {
-                connection.execute("INSERT INTO atlas_answers VALUES (?1, 'en', ?2, ?3, ?4)", params![TODAY, position, country, tier]).unwrap();
+                // Belgium has a note on why it fits; the others fall back to the fun-fact pool.
+                let note = (country == "BEL").then_some("Belgium meets Germany near Eupen.");
+                connection
+                    .execute(
+                        "INSERT INTO atlas_answers (day, lang, position, country, tier, note) VALUES (?1, 'en', ?2, ?3, ?4, ?5)",
+                        params![TODAY, position, country, tier, note],
+                    )
+                    .unwrap();
             }
         }
         connection.execute("INSERT INTO atlas_facts (lang, country, fact) VALUES ('en', 'LUX', 'A fact about Luxembourg.')", []).unwrap();
@@ -362,6 +373,15 @@ mod tests {
         assert!(matches!(error, AppError::BadRequest { code: "already_tried", .. }));
         let unseen: i64 = connection.query_row("SELECT COUNT(*) FROM atlas_facts WHERE shown_on IS NULL", [], |row| row.get(0)).unwrap();
         assert_eq!(unseen, 0);
+    }
+
+    #[test]
+    fn a_note_on_the_clue_comes_before_the_fun_fact_pool() {
+        let mut connection = connection_with_puzzle();
+        let (_, result) = pick(&mut connection, today(), Language::En, 0, "BEL", &AtlasSettings::default()).unwrap();
+        assert_eq!(result, PickResult::Found { country: "BEL".into(), tier: 2, points: 25, fact: Some("Belgium meets Germany near Eupen.".into()) });
+        let (_, result) = pick(&mut connection, today(), Language::En, 1, "FRA", &AtlasSettings::default()).unwrap();
+        assert_eq!(result, PickResult::Found { country: "FRA".into(), tier: 1, points: 10, fact: None }, "no note and no fact in the pool");
     }
 
     #[test]

@@ -35,6 +35,12 @@ fn leading_articles(language: Language, words: &[&str]) -> usize {
         .map_or(0, |article| article.len())
 }
 
+/// Lowercase without accents, keeping spaces and punctuation: for comparing what is typed with how an answer is
+/// written ("Crème B" -> "creme b").
+pub fn fold(text: &str) -> String {
+    text.nfd().filter(|character| !unicode_normalization::char::is_combining_mark(*character)).flat_map(char::to_lowercase).collect()
+}
+
 /// The normalized text plus simple singular forms, so "hammers" matches "hammer".
 pub fn variants(language: Language, normalized: &str) -> Vec<String> {
     let mut forms = vec![normalized.to_owned()];
@@ -97,9 +103,9 @@ pub fn edit_distance(left: &str, right: &str) -> usize {
 /// Content words of a prompt, for spotting near-duplicates ("Something in a toolbox" vs "Things found in toolboxes").
 pub fn keywords(language: Language, text: &str) -> Vec<String> {
     let stop: &[&str] = match language {
-        Language::En => &["a", "an", "the", "that", "you", "can", "in", "on", "of", "something", "things", "thing", "name", "with", "for", "is", "are", "be", "to", "or", "and", "your", "find", "found", "would", "could", "might", "usually", "often", "people", "someone"],
-        Language::Fr => &["un", "une", "le", "la", "les", "des", "de", "du", "que", "qui", "on", "en", "dans", "quelque", "chose", "choses", "avec", "pour", "est", "sont", "et", "ou", "ton", "ta", "tes", "trouve", "trouver", "souvent"],
-        Language::Nl => &["een", "de", "het", "dat", "die", "je", "in", "op", "van", "iets", "dingen", "ding", "met", "voor", "is", "zijn", "en", "of", "jouw", "kan", "vind", "vindt", "gevonden", "vaak"],
+        Language::En => &["a", "an", "the", "that", "you", "can", "in", "on", "of", "something", "things", "thing", "name", "with", "for", "is", "are", "be", "to", "or", "and", "your", "find", "found", "would", "could", "might", "usually", "often", "people", "someone", "what", "where", "which", "who"],
+        Language::Fr => &["un", "une", "le", "la", "les", "des", "de", "du", "que", "qui", "on", "en", "dans", "quelque", "chose", "choses", "avec", "pour", "est", "sont", "et", "ou", "ton", "ta", "tes", "trouve", "trouver", "trouves", "peut", "peux", "souvent", "quoi"],
+        Language::Nl => &["een", "de", "het", "dat", "die", "je", "in", "op", "van", "iets", "dingen", "ding", "met", "voor", "is", "zijn", "en", "of", "jouw", "kan", "kun", "kunt", "vind", "vindt", "vinden", "gevonden", "vaak", "wat", "waar", "welk", "welke", "wordt", "worden"],
     };
     let mut words: Vec<String> = normalize(language, text)
         .split_whitespace()
@@ -157,5 +163,12 @@ mod tests {
         assert!(similarity(&left, &right) >= 0.5, "{left:?} vs {right:?}");
         let other = keywords(Language::En, "A fruit that isn't round");
         assert!(similarity(&left, &other) < 0.2);
+    }
+
+    #[test]
+    fn the_same_sentence_pattern_with_another_place_is_not_a_repeat() {
+        let kitchen = keywords(Language::Nl, "Iets wat je in de keuken kunt vinden");
+        let school_bag = keywords(Language::Nl, "Iets wat je in een schooltas kunt vinden");
+        assert!(similarity(&kitchen, &school_bag) < 0.6, "{kitchen:?} vs {school_bag:?}");
     }
 }

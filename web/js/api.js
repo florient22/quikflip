@@ -40,6 +40,7 @@ export const api = {
   rarefindAnswer: (position, text) => request('/api/rarefind/answer', { method: 'POST', body: { position, text } }),
   rarefindExpire: position => request('/api/rarefind/expire', { method: 'POST', body: { position } }),
   rarefindContest: (position, text) => request('/api/rarefind/contest', { method: 'POST', body: { position, text } }),
+  rarefindAutofill: (position, text) => request(`/api/rarefind/autofill?position=${position}&q=${encodeURIComponent(text)}`),
   saveAtlasSettings: settings => request('/api/settings/atlas', { method: 'PUT', body: settings }),
   atlas: () => request('/api/atlas'),
   atlasPick: (position, country) => request('/api/atlas/pick', { method: 'POST', body: { position, country } }),

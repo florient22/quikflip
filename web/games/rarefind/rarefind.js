@@ -22,6 +22,9 @@ const DROP_MS = 520;
 const NEXT_PROMPT_DELAY_MS = 1900;
 const TIMEOUT_NEXT_DELAY_MS = 2800;
 const CRATE_RESET_MS = 900;
+const AUTOFILL_DELAY_MS = 90;       // wait for a pause in typing before asking the server
+const BEST_SHOWN = 5;               // rarest answers listed per prompt in the summary
+const WAITING_POLL_MS = 60_000;     // while there is no puzzle yet, check this often whether it has arrived
 const LANDMARKS = [
   { meters: 50, x: '20%', w: 26, shape: 'polygon(36% 100%, 64% 100%, 58% 18%, 70% 18%, 70% 9%, 50% 0, 30% 9%, 30% 18%, 42% 18%)' },
   { meters: 96, x: '30%', w: 32, shape: 'polygon(20% 100%, 80% 100%, 80% 30%, 88% 26%, 50% 0, 12% 26%, 20% 30%)' },
@@ -52,9 +55,11 @@ const STRINGS = {
     empty: 'Type an answer first.',
     waitingTitle: 'No blueprints yet',
     waiting: 'The planner draws today’s floors overnight. Check back soon.',
+    waitingLimit: 'The planner hit Claude’s usage limit. New floors come after {time}.',
+    resumesIn: 'Planner back in {time}',
     doneTitle: 'Topping out!', done: { one: 'Topping out! 1 floor, {height} m tall.', other: 'Topping out! {count} floors, {height} m tall.' },
     points: 'Points', height: 'Height', yourAnswer: 'You: {answer} · {tier} · +{points}', noFloor: 'No floor: time ran out',
-    rarest: 'Rarest: {rarest}', rejectedList: 'Not accepted: {list}', contest: 'Contest “{answer}”',
+    bestPicks: 'Best picks: {list}', allAnswers: 'All {count} answers', rejectedList: 'Not accepted: {list}', contest: 'Contest “{answer}”',
     'contest.pending': 'Contested “{typed}”: tonight’s judge will decide.',
     'contest.accepted': 'Contest won: “{typed}” counts as {tier}.',
     'contest.rejected': 'Contest lost: “{typed}” does not count.',
@@ -66,6 +71,7 @@ const STRINGS = {
     'banner.0': 'a lighthouse', 'banner.1': 'Big Ben', 'banner.2': 'the Pyramid of Giza', 'banner.3': 'the Eiffel Tower', 'banner.4': 'the Empire State Building', 'banner.5': 'the Burj Khalifa',
     timer: 'Time per prompt', 'timer.normal': '25 seconds', 'timer.relaxed': '45 seconds', 'timer.off': 'No timer',
     timerHelp: 'Applies from the next floor you start.', saveFailed: 'That setting could not be saved. Try again.',
+    autofill: 'Autofill answers', autofillHelp: 'Once you have typed at least half of an accepted answer, the rest is filled in. Press Enter to build it, or keep typing to change it.',
     network: 'I can’t reach the server. Check your connection and try again.',
     jammed: 'Something jammed on the server. Try again in a moment.', retry: 'Try again',
   },
@@ -84,9 +90,11 @@ const STRINGS = {
     empty: 'Tape d’abord une réponse.',
     waitingTitle: 'Pas encore de plans',
     waiting: 'L’architecte dessine les étages du jour pendant la nuit. Reviens bientôt.',
+    waitingLimit: 'L’architecte a atteint la limite d’utilisation de Claude. Nouveaux étages après {time}.',
+    resumesIn: 'Architecte de retour dans {time}',
     doneTitle: 'Bouquet final !', done: { one: 'Bouquet final ! 1 étage, {height} m de haut.', other: 'Bouquet final ! {count} étages, {height} m de haut.' },
     points: 'Points', height: 'Hauteur', yourAnswer: 'Toi : {answer} · {tier} · +{points}', noFloor: 'Pas d’étage : temps écoulé',
-    rarest: 'La plus rare : {rarest}', rejectedList: 'Refusées : {list}', contest: 'Contester « {answer} »',
+    bestPicks: 'Meilleurs choix : {list}', allAnswers: 'Les {count} réponses', rejectedList: 'Refusées : {list}', contest: 'Contester « {answer} »',
     'contest.pending': '« {typed} » contesté : le juge de la nuit décidera.',
     'contest.accepted': 'Contestation gagnée : « {typed} » compte comme {tier}.',
     'contest.rejected': 'Contestation perdue : « {typed} » ne compte pas.',
@@ -98,6 +106,7 @@ const STRINGS = {
     'banner.0': 'un phare', 'banner.1': 'Big Ben', 'banner.2': 'la pyramide de Gizeh', 'banner.3': 'la tour Eiffel', 'banner.4': 'l’Empire State Building', 'banner.5': 'le Burj Khalifa',
     timer: 'Temps par question', 'timer.normal': '25 secondes', 'timer.relaxed': '45 secondes', 'timer.off': 'Sans chrono',
     timerHelp: 'S’applique à partir du prochain étage lancé.', saveFailed: 'Ce réglage n’a pas pu être enregistré. Réessaie.',
+    autofill: 'Compléter les réponses', autofillHelp: 'Dès que tu as tapé au moins la moitié d’une réponse acceptée, le reste se complète. Appuie sur Entrée pour la bâtir, ou continue à taper pour la changer.',
     network: 'Je n’arrive pas à joindre le serveur. Vérifie ta connexion et réessaie.',
     jammed: 'Quelque chose a coincé sur le serveur. Réessaie dans un instant.', retry: 'Réessayer',
   },
@@ -116,9 +125,11 @@ const STRINGS = {
     empty: 'Typ eerst een antwoord.',
     waitingTitle: 'Nog geen bouwplannen',
     waiting: 'De architect tekent de verdiepingen van vandaag ’s nachts. Kom straks terug.',
+    waitingLimit: 'De architect zit aan de gebruikslimiet van Claude. Nieuwe verdiepingen komen na {time}.',
+    resumesIn: 'Architect terug over {time}',
     doneTitle: 'Hoogste punt!', done: { one: 'Hoogste punt! 1 verdieping, {height} m hoog.', other: 'Hoogste punt! {count} verdiepingen, {height} m hoog.' },
     points: 'Punten', height: 'Hoogte', yourAnswer: 'Jij: {answer} · {tier} · +{points}', noFloor: 'Geen verdieping: de tijd was op',
-    rarest: 'Zeldzaamste: {rarest}', rejectedList: 'Niet goedgekeurd: {list}', contest: '“{answer}” betwisten',
+    bestPicks: 'Beste keuzes: {list}', allAnswers: 'Alle {count} antwoorden', rejectedList: 'Niet goedgekeurd: {list}', contest: '“{answer}” betwisten',
     'contest.pending': '“{typed}” betwist: de nachtrechter beslist.',
     'contest.accepted': 'Gewonnen: “{typed}” telt als {tier}.',
     'contest.rejected': 'Verloren: “{typed}” telt niet.',
@@ -130,6 +141,7 @@ const STRINGS = {
     'banner.0': 'een vuurtoren', 'banner.1': 'de Big Ben', 'banner.2': 'de piramide van Gizeh', 'banner.3': 'de Eiffeltoren', 'banner.4': 'het Empire State Building', 'banner.5': 'de Burj Khalifa',
     timer: 'Tijd per vraag', 'timer.normal': '25 seconden', 'timer.relaxed': '45 seconden', 'timer.off': 'Geen timer',
     timerHelp: 'Geldt vanaf de volgende verdieping die je start.', saveFailed: 'Die instelling kon niet worden opgeslagen. Probeer opnieuw.',
+    autofill: 'Antwoorden aanvullen', autofillHelp: 'Zodra je minstens de helft van een goedgekeurd antwoord typt, wordt de rest ingevuld. Druk op Enter om te bouwen, of typ verder om het te veranderen.',
     network: 'Ik kan de server niet bereiken. Controleer je verbinding en probeer opnieuw.',
     jammed: 'Er liep iets vast op de server. Probeer het zo meteen opnieuw.', retry: 'Opnieuw proberen',
   },
@@ -141,6 +153,10 @@ const escapeHtml = text => String(text).replace(/[&<>"']/g, char => ({ '&': '&am
 const floorsOf = game => game.prompts.filter(prompt => prompt.outcome === 'answered' && prompt.tier);
 const towerMeters = floors => floors.reduce((sum, prompt) => sum + TIERS[prompt.tier - 1].meters, 0);
 const isDark = () => matchMedia('(prefers-color-scheme: dark)').matches;
+// Lowercase without accents, like the server compares answers ("Crème" -> "creme").
+const fold = text => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+const rarestOf = prompt => prompt.answers[0]?.answers[0] ?? '';
+const clockTime = unixMs => new Date(unixMs).toLocaleTimeString(game.language, { hour: '2-digit', minute: '2-digit' });
 const BURJ = LANDMARKS.at(-1);
 
 function mixHex(from, to, amount) {
@@ -187,7 +203,10 @@ let shownMeters = 0;
 let timerFrame = 0;
 let countFrame = 0;
 let stopCountdown = () => {};
+let stopResumeCountdown = () => {};
 let urgentAnnounced = false;
+let autofillTimer = 0;
+let autofillRequest = 0;
 const timeouts = new Set();
 const after = (ms, callback) => {
   const id = setTimeout(() => { timeouts.delete(id); callback(); }, ms);
@@ -277,17 +296,25 @@ function stopTimer() {
   viewport.classList.remove('is-urgent');
 }
 
+// The time left shows twice: as the strip under the crate and as a bar shrinking along the answer field.
+function showHold(share) {
+  crate.style.setProperty('--hold', share);
+  form.style.setProperty('--hold', share);
+}
+
 function runTimer(prompt) {
   stopTimer();
   urgentAnnounced = false;
-  if (prompt.remainingMs == null || !prompt.timeLimit) {
-    crate.style.setProperty('--hold', 1);
+  const timed = prompt.remainingMs != null && Boolean(prompt.timeLimit);
+  form.classList.toggle('has-timer', timed);
+  if (!timed) {
+    showHold(1);
     return;
   }
   const deadline = Date.now() + prompt.remainingMs;
   const step = () => {
     const left = Math.max(0, deadline - Date.now()) / 1000;
-    crate.style.setProperty('--hold', (left / prompt.timeLimit).toFixed(3));
+    showHold((left / prompt.timeLimit).toFixed(3));
     meta.textContent = `${t('floorOf', { n: prompt.position + 1, total: game.prompts.length })} · ${t('seconds', { s: Math.ceil(left) })}`;
     const urgent = left <= URGENT_SECONDS;
     viewport.classList.toggle('is-urgent', urgent);
@@ -307,15 +334,13 @@ function runTimer(prompt) {
 /* ---------- Rendering the current step ---------- */
 function render() {
   stopTimer();
+  stopResumeCountdown();
   summary.hidden = true;
   startButton.hidden = true;
   form.hidden = true;
   crate.className = 'crate';
   if (game.status === 'waiting') {
-    promptTitle.textContent = t('waitingTitle');
-    promptTitle.classList.add('is-hidden');
-    meta.textContent = '';
-    say(t('waiting'), 'meh');
+    renderWaiting();
     return;
   }
   if (game.status === 'solved') {
@@ -333,7 +358,7 @@ function render() {
     promptTitle.classList.add('is-hidden');
     startButton.textContent = t('startFloor', { n: prompt.position + 1 });
     startButton.hidden = false;
-    crate.style.setProperty('--hold', 1);
+    showHold(1);
     say(t('ready', { n: prompt.position + 1 }), 'idle');
     return;
   }
@@ -346,8 +371,35 @@ function render() {
   runTimer(prompt);
 }
 
+// No puzzle yet: say why (overnight planning, or Claude's usage limit with the time it resets) and check back.
+function renderWaiting() {
+  promptTitle.textContent = t('waitingTitle');
+  promptTitle.classList.add('is-hidden');
+  meta.textContent = '';
+  const resumesAt = game.claudePausedUntil;
+  if (resumesAt) {
+    say(t('waitingLimit', { time: clockTime(resumesAt) }), 'meh');
+    stopResumeCountdown = startCountdown((resumesAt - Date.now()) / 1000, left => {
+      meta.textContent = t('resumesIn', { time: formatDuration(left) });
+    }, () => {});
+  } else {
+    say(t('waiting'), 'meh');
+  }
+  after(WAITING_POLL_MS, load);
+}
+
 function tierLabel(tier) {
   return t(`tier.${tier}`);
+}
+
+// Every accepted answer by tier, rarest first, folded away until asked for.
+function answersHtml(prompt) {
+  const count = prompt.answers.reduce((sum, group) => sum + group.answers.length, 0);
+  if (!count) return '';
+  const groups = prompt.answers.map(group => `
+    <li><span class="floor-chip" style="--c: ${TIERS[group.tier - 1].color}"></span>
+      <span><b>${tierLabel(group.tier)} &middot; ${TIERS[group.tier - 1].points}</b> ${escapeHtml(group.answers.join(', '))}</span></li>`).join('');
+  return `<details class="all-answers"><summary>${t('allAnswers', { count })}</summary><ul class="tier-list">${groups}</ul></details>`;
 }
 
 function renderSummary() {
@@ -360,7 +412,11 @@ function renderSummary() {
     lines.push(answered
       ? `<span>${escapeHtml(t('yourAnswer', { answer: prompt.answer, tier: tierLabel(prompt.tier), points: prompt.points }))}</span>`
       : `<span>${t('noFloor')}</span>`);
-    if (prompt.rarest) lines.push(`<span class="muted">${escapeHtml(t('rarest', { rarest: prompt.rarest }))}</span>`);
+    const best = prompt.answers[0];
+    if (best) {
+      const list = best.answers.slice(0, BEST_SHOWN).join(', ') + (best.answers.length > BEST_SHOWN ? ', …' : '');
+      lines.push(`<span class="muted">${escapeHtml(t('bestPicks', { list }))}</span>`);
+    }
     if (prompt.contest) {
       const status = prompt.contest.status;
       lines.push(`<span>${escapeHtml(t(`contest.${status}`, { typed: prompt.contest.typed, tier: prompt.contest.tier ? tierLabel(prompt.contest.tier) : '' }))}</span>`);
@@ -368,6 +424,7 @@ function renderSummary() {
       lines.push(`<span class="muted">${escapeHtml(t('rejectedList', { list: prompt.rejected.join(', ') }))}</span>`);
       lines.push(...prompt.rejected.map(answer => `<button type="button" class="contest-btn" data-contest="${prompt.position}" data-text="${escapeHtml(answer)}">${escapeHtml(t('contest', { answer }))}</button>`));
     }
+    lines.push(answersHtml(prompt));
     return `<li>${chip}<span class="floor-text">${lines.join('')}</span><span class="floor-points">${prompt.points ? `+${prompt.points}` : ''}</span></li>`;
   }).join('');
   summary.innerHTML = `
@@ -488,8 +545,32 @@ function showTimeout(prompt) {
   stopTimer();
   form.hidden = true;
   restartClass(crate, 'is-falling');
-  say(t('timeout', { rarest: prompt.rarest ?? '' }), 'oops');
+  say(t('timeout', { rarest: rarestOf(prompt) }), 'oops');
   after(TIMEOUT_NEXT_DELAY_MS, render);
+}
+
+// Autofill: once enough of an accepted answer is typed, the server returns it and the rest is filled in, selected,
+// so Enter builds it and typing on replaces it. Only after typing (not deleting), and only if nothing changed meanwhile.
+function onAnswerInput(event) {
+  clearTimeout(autofillTimer);
+  autofillRequest += 1;
+  if (!settings?.rarefind.autofill || !event.inputType?.startsWith('insert')) return;
+  const typed = input.value;
+  const position = game.current;
+  if (typed !== typed.trimStart() || input.selectionStart !== typed.length) return;
+  const request = autofillRequest;
+  autofillTimer = setTimeout(async () => {
+    let completion = null;
+    try {
+      ({ completion } = await api.rarefindAutofill(position, typed));
+    } catch {
+      return; // autofill is a convenience; typing still works without it
+    }
+    const unchanged = request === autofillRequest && input.value === typed && game.current === position && !form.hidden;
+    if (!completion || !unchanged || !fold(completion).startsWith(fold(typed))) return;
+    input.value = completion;
+    input.setSelectionRange(typed.length, completion.length);
+  }, AUTOFILL_DELAY_MS);
 }
 
 async function onContest(position, text) {
@@ -510,17 +591,20 @@ function openSettings() {
       ${TIMER_OPTIONS.map(option => `<label class="option"><input type="radio" name="timer" value="${option}" ${settings.rarefind.timer === option ? 'checked' : ''}>${t(`timer.${option}`)}</label>`).join('')}
     </fieldset>
     <p class="help">${t('timerHelp')}</p>
+    <label class="option"><input type="checkbox" name="autofill" ${settings.rarefind.autofill ? 'checked' : ''}>${t('autofill')}</label>
+    <p class="help">${t('autofillHelp')}</p>
     <p class="settings-error" role="alert" hidden></p>`;
   const errorLine = settingsForm.querySelector('.settings-error');
   settingsForm.addEventListener('submit', event => event.preventDefault());
   settingsForm.addEventListener('change', async () => {
     const previous = settings.rarefind;
     try {
-      settings = await api.saveRarefindSettings({ timer: settingsForm.elements.timer.value });
+      settings = await api.saveRarefindSettings({ timer: settingsForm.elements.timer.value, autofill: settingsForm.elements.autofill.checked });
       game.timer = { normal: 25, relaxed: 45, off: null }[settings.rarefind.timer];
       errorLine.hidden = true;
     } catch {
       settingsForm.elements.timer.value = previous.timer;
+      settingsForm.elements.autofill.checked = previous.autofill;
       errorLine.textContent = t('saveFailed');
       errorLine.hidden = false;
     }
@@ -555,6 +639,7 @@ async function load() {
 
 startButton.addEventListener('click', onStart);
 form.addEventListener('submit', onSubmit);
+input.addEventListener('input', onAnswerInput);
 summary.addEventListener('click', event => {
   const button = event.target.closest('[data-contest]');
   if (button) onContest(Number(button.dataset.contest), button.dataset.text);

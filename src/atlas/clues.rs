@@ -1,18 +1,14 @@
 //! Clues whose answers are computed from the country data, so the list of valid countries is always complete and
-//! correct. Claude only words them and rates how rare each country is.
+//! correct. Claude only words them and rates how rare each country is. Only facts that make good trivia are used
+//! (neighbours, languages, currencies, coastlines); regions, sizes and first letters made dull, school-test clues.
 
 use std::collections::BTreeMap;
 
-use unicode_normalization::UnicodeNormalization;
-
 use super::countries::{self, Country};
-use crate::settings::{AtlasRegion, Language};
+use crate::settings::AtlasRegion;
 
 /// A clue needs at least this many valid countries, so there is something rare to find.
 pub const MIN_VALID: usize = 4;
-const MIN_SUBREGION: usize = 5;
-const BIG_AREA_KM2: f64 = 1_000_000.0;
-const SMALL_AREA_KM2: f64 = 1_000.0;
 const MANY_NEIGHBOURS: usize = 6;
 const FEW_NEIGHBOURS: [usize; 3] = [1, 2, 3];
 /// Currencies shared by enough countries to make a clue, with the name Claude should use.
@@ -39,12 +35,8 @@ fn clue(kind: String, meaning: String, matching: Vec<&'static Country>) -> Optio
     (matching.len() >= MIN_VALID).then(|| DataClue { kind, meaning, countries: matching.iter().map(|country| country.code.as_str()).collect() })
 }
 
-fn first_letter(name: &str) -> Option<char> {
-    name.nfd().find(|character| character.is_alphabetic()).map(|letter| letter.to_ascii_uppercase())
-}
-
-/// Every data clue that works for this region and language. The generator filters out recently used kinds.
-pub fn candidates(region: AtlasRegion, language: Language) -> Vec<DataClue> {
+/// Every data clue that works for this region. The generator filters out recently used kinds.
+pub fn candidates(region: AtlasRegion) -> Vec<DataClue> {
     let pool: Vec<&'static Country> = countries::in_region(region).collect();
     let select = |keep: &dyn Fn(&Country) -> bool| pool.iter().copied().filter(|country| keep(country)).collect::<Vec<_>>();
     let mut clues = Vec::new();
@@ -68,36 +60,12 @@ pub fn candidates(region: AtlasRegion, language: Language) -> Vec<DataClue> {
         clues.extend(clue(format!("currency:{code}"), format!("Uses {name} as its currency"), select(&|country| country.currencies.iter().any(|currency| currency == code))));
     }
 
-    let mut subregions: BTreeMap<&str, Vec<&'static Country>> = BTreeMap::new();
-    for country in &pool {
-        subregions.entry(country.subregion.as_str()).or_default().push(country);
-    }
-    for (subregion, matching) in subregions {
-        // A subregion that is the whole region (or too small) makes a poor clue.
-        if !subregion.is_empty() && matching.len() >= MIN_SUBREGION && matching.len() < pool.len() {
-            clues.extend(clue(format!("subregion:{subregion}"), format!("Lies in {subregion}"), matching));
-        }
-    }
-
     clues.extend(clue("landlocked".into(), "Is landlocked (no coastline at all)".into(), select(&|country| country.landlocked)));
     clues.extend(clue("no-borders".into(), "Has no land border with any other country (islands and island groups)".into(), select(&|country| country.borders.is_empty())));
     for count in FEW_NEIGHBOURS {
         clues.extend(clue(format!("neighbours:{count}"), format!("Borders exactly {count} other countr{}", if count == 1 { "y" } else { "ies" }), select(&|country| country.borders.len() == count)));
     }
     clues.extend(clue(format!("neighbours:{MANY_NEIGHBOURS}+"), format!("Borders {MANY_NEIGHBOURS} or more countries"), select(&|country| country.borders.len() >= MANY_NEIGHBOURS)));
-    clues.extend(clue("area:big".into(), "Is larger than 1,000,000 km²".into(), select(&|country| country.area > BIG_AREA_KM2)));
-    clues.extend(clue("area:small".into(), "Is smaller than 1,000 km²".into(), select(&|country| country.area < SMALL_AREA_KM2)));
-
-    let mut letters: BTreeMap<char, Vec<&'static Country>> = BTreeMap::new();
-    for country in &pool {
-        if let Some(letter) = first_letter(country.name(language)) {
-            letters.entry(letter).or_default().push(country);
-        }
-    }
-    for (letter, matching) in letters {
-        let meaning = format!("Its name (as written in the player's language) starts with the letter {letter}");
-        clues.extend(clue(format!("letter:{letter}"), meaning, matching));
-    }
     clues
 }
 
@@ -111,7 +79,7 @@ mod tests {
 
     #[test]
     fn data_clues_list_every_matching_country() {
-        let world = candidates(AtlasRegion::World, Language::En);
+        let world = candidates(AtlasRegion::World);
         let germany = find(&world, "borders:DEU");
         assert_eq!(germany.countries.len(), 9);
         assert!(germany.countries.contains(&"BEL"));
@@ -120,12 +88,9 @@ mod tests {
     }
 
     #[test]
-    fn regions_and_languages_change_the_answers() {
-        let europe = candidates(AtlasRegion::Europe, Language::En);
+    fn regions_change_the_answers_and_territories_count() {
+        let europe = candidates(AtlasRegion::Europe);
         assert!(find(&europe, "language:French").countries.iter().all(|code| countries::by_code(code).unwrap().region == "Europe"));
-        // Germany is "Allemagne" in French, so it counts for A there and for G in English.
-        let french = candidates(AtlasRegion::World, Language::Fr);
-        assert!(find(&french, "letter:A").countries.contains(&"DEU"));
-        assert!(find(&candidates(AtlasRegion::World, Language::En), "letter:G").countries.contains(&"DEU"));
+        assert!(find(&candidates(AtlasRegion::World), "borders:BRA").countries.contains(&"FRA"));
     }
 }

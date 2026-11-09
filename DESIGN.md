@@ -29,23 +29,29 @@ Dark mode uses pure black backgrounds (OLED); cards and panels sit a hair above 
 
 - Runs as a second container from the same image: `quikflip generate --loop`. Each hour it makes sure puzzles exist for today and the next 2 days (Rarefind and Atlas Hunt in every language in `QUIKFLIP_LANGUAGES`, Snippet for every mode and genre), tops up Atlas Hunt's fun facts, then judges pending contests. A missed night (NAS off, Claude or Deezer unavailable) is caught up on the next pass.
 - Snippet needs no AI: its songs come from Deezer, so Snippet keeps working even without a Claude token.
-- Calls `claude -p --output-format json --tools "" --json-schema …`, authenticated with `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (your subscription). Tools are switched off; the CLI validates the answer against the schema, and QuikFlip validates it again.
+- Calls `claude -p --output-format stream-json --verbose --tools "" --json-schema …`, authenticated with `CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` (your subscription). Tools are switched off; the CLI validates the answer against the schema, and QuikFlip validates it again.
 - Rejected output is sent back once more with the reasons (up to 3 attempts); a day that still fails stays "not ready" and is retried an hour later.
+- Usage limit: the CLI's stream reports the subscription's limit status and reset time. When a call is refused at the limit, the remaining Claude work stops, the reset time (plus 2 minutes) is stored in the database, and the generator sleeps until then instead of a full hour; Snippet carries on as usual. Rarefind, Atlas Hunt and the homepage show that time while a puzzle is missing, and check every minute whether it has arrived. After the reset everything continues on the normal hourly schedule.
 
 ## Rarefind
 
 - 7 prompts a day per language. A prompt's text stays hidden until you start it, and the deadline is kept on the server, so reloading the page does not reset the timer. A wrong answer costs 3 seconds.
 - Answers match after folding accents, articles and simple plurals, and with one typo forgiven from 5 letters (two from 9).
+- Autofill (a setting, on by default): once at least 3 letters and half of an accepted answer are typed, the server returns that answer and the page fills in the rest, selected, so Enter builds it and typing on replaces it. The answer list never goes to the browser.
+- The timer shows as the strip under the crate and as a bar shrinking along the answer field.
+- After a prompt, the summary lists the best picks (the rarest tier) and, folded away, every accepted answer by tier.
 - Tiers 1 to 5 score 10, 25, 50, 80 and 100 points and build concrete, brick, glass, gold or neon floors.
 - Contests: after the day, a rejected answer can be contested once per prompt. The next generator pass asks Claude for a verdict; an accepted answer is added to the list and the prompt keeps the better score.
-- Settings: time per prompt (25 s, 45 s, off), applied from the next prompt you start.
+- Settings: time per prompt (25 s, 45 s, off), applied from the next prompt you start; autofill on or off.
 
 ## Atlas Hunt
 
 - 5 clues a day per language. Pick one country per clue, by clicking the planet or typing its name (any language, official names and common spellings work). Every country that fits scores; rarer picks score more (the same 10 to 100 points as Rarefind) and rise higher, launching a bigger moon onto a wider orbit. A country can be used once a day. Three misses lose the clue, and the rarest answers are shown.
-- Clues come in two kinds. Data clues are computed from the country list (borders, official languages, currencies, subregions, landlocked, island nations, number of neighbours, size, first letter of the name in your language), so their answers are complete and correct; Claude only words them and rates rarity. Theme clues (flags, sport, food, history, nature, landmarks, culture, inventions, geography records, famous people) are invented by Claude, which must list every fitting country by code; codes outside the region or list are rejected. Each day has 3 data clues and 2 theme clues, in random order.
+- Clues are everyday trivia with a surprising answer, in the spirit of Farflung ("German is an official language there": Belgium; "Penguins live there in the wild": South Africa). Every clue needs at least one gem, a fitting country rated tier 5. Overseas territories count for the country they belong to (France borders Brazil through French Guiana).
+- Clues come in two kinds. Data clues are computed from the country list (borders, including those through territories; official languages; currencies; landlocked; island nations; number of neighbours), so their answers are complete and correct; Claude only words them and rates rarity. Theme clues (flags, wildlife, rivers and mountains, everyday life, country names, breeds and namesakes, food and drink, sport, history, landmarks, the map) are invented by Claude, which must list every fitting country by code; codes outside the region or list are rejected. Each day has 2 data clues and 3 theme clues, in random order. Regions, sizes and first letters are no longer used: they made dull, school-test clues.
 - Repeats: a data clue (for example "borders Germany") rests 60 days; themes rotate least-recently-used first; invented clues are checked against the last 90 days by wording.
-- Fun facts: a pool per country and language. When you find a country you get one you have never seen, and it is marked as shown so it never comes back. The generator keeps at least 2 unseen facts for every country that can be found in the coming days.
+- Notes: with every clue, Claude writes one short sentence per fitting country on why it fits (for "German is an official language there", Belgium: the German-speaking community around Eupen). Finding the country shows that note, so the fact always belongs to the question.
+- Fun facts: a fallback pool per country and language, for answers without a note (a note that is empty or too long is dropped, and puzzles from before 0.4.0 have none). You get a fact you have never seen, and it is marked as shown so it never comes back. The generator keeps at least 2 unseen facts only for countries that can be found in the coming days without a note.
 - Settings: region (whole world, Europe, Africa, Americas, Asia, Oceania) and fun facts on or off. A new region applies from tomorrow: later puzzles made for the old region and not played yet are made again.
 - The planet is three.js; countries are drawn from Natural Earth 1:50m shapes. Very small countries (and Tuvalu, which has no shape at that scale) get a hexagonal column instead of a raised outline. The page needs WebGL.
 
